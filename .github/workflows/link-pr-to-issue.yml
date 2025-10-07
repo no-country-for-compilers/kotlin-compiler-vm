@@ -35,34 +35,57 @@ jobs:
             const issueNumber = match[1];
             const issueKey = `NOCOUNTRY-${issueNumber}`;
 
-            // Ищем issue с префиксом NOCOUNTRY-123 в названии
-            const { data: issues } = await github.rest.issues.listForRepo({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              state: "open"
-            });
-
-            const linkedIssue = issues.find(i => i.title.includes(issueKey));
+            // Ищем issue по префиксу в названии через Search API (учитывает и открытые, и закрытые)
+            const q = `repo:${context.repo.owner}/${context.repo.repo} is:issue in:title "${issueKey}"`;
+            const search = await github.rest.search.issuesAndPullRequests({ q, per_page: 50 });
+            const linkedIssue = search.data.items.find(i => i.title.startsWith(issueKey));
             if (!linkedIssue) {
-              console.log(`⚠️ Issue with prefix ${issueKey} not found`);
+              console.log(`⚠️ Issue with prefix ${issueKey} not found via search`);
               return;
             }
 
-            // Добавляем комментарий в issue со ссылкой на PR
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: linkedIssue.number,
-              body: `🔗 **Связанный PR:** [#${pr.number} - ${pr.title}](${pr.html_url})`
-            });
+            // Проверим, нет ли уже такого комментария, чтобы не дублировать на synchronize
+            const existingComments = await github.paginate(
+              github.rest.issues.listComments,
+              {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: linkedIssue.number,
+                per_page: 100
+              }
+            );
+            const hasComment = existingComments.some(c => (c.body || "").includes(`#${pr.number}`));
+            if (!hasComment) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: linkedIssue.number,
+                body: `🔗 **Связанный PR:** [#${pr.number} - ${pr.title}](${pr.html_url})`
+              });
+            } else {
+              console.log(`ℹ️ Comment already exists for PR #${pr.number} on issue #${linkedIssue.number}`);
+            }
 
-            // Добавляем в тело PR ссылку на issue без автоматических уведомлений
-            const newBody = `${pr.body || ""}\n\n**Связанная issue:** #${linkedIssue.number}`;
-            await github.rest.pulls.update({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: pr.number,
-              body: newBody
-            });
+            // Обновим описание PR: заменим существующую строку, чтобы не плодить дубликаты
+            const markerRegex = /\*\*Связанная issue:\*\*\s*#\d+/i;
+            const currentBody = pr.body || "";
+            const desiredLine = `**Связанная issue:** #${linkedIssue.number}`;
+            let updatedBody;
+            if (markerRegex.test(currentBody)) {
+              updatedBody = currentBody.replace(markerRegex, desiredLine);
+            } else {
+              updatedBody = `${currentBody}\n\n${desiredLine}`.trim();
+            }
+
+            if (updatedBody !== currentBody) {
+              await github.rest.pulls.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: pr.number,
+                body: updatedBody
+              });
+            } else {
+              console.log("ℹ️ PR body already contains the correct linked issue line");
+            }
 
             console.log(`✅ Linked PR #${pr.number} → Issue #${linkedIssue.number} (${issueKey})`);
