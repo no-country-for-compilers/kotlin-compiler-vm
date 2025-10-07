@@ -174,16 +174,21 @@ jobs:
 
             // Ищем проект v2 в репозитории по названию
             const repoProjects = await github.graphql(`
-              query($owner:String!, $repo:String!, $searchQuery:String!){
+              query($owner:String!, $repo:String!){
                 repository(owner:$owner, name:$repo){
-                  projectsV2(first:50, query:$searchQuery){ nodes { id title fields(first:50){ nodes { ... on ProjectV2SingleSelectField { id name options { id name } } } } } }
+                  projectsV2(first:50){ nodes { id title fields(first:50){ nodes { ... on ProjectV2SingleSelectField { id name options { id name } } } } } }
                 }
               }
-            `, { owner, repo, searchQuery: PROJECT_TITLE });
-            let project = repoProjects?.repository?.projectsV2?.nodes?.find(p => p.title === PROJECT_TITLE);
+            `, { owner, repo });
+            
+            console.log(`🔍 Found ${repoProjects?.repository?.projectsV2?.nodes?.length || 0} projects in repository`);
+            const allProjects = repoProjects?.repository?.projectsV2?.nodes || [];
+            allProjects.forEach(p => console.log(`📋 Project: "${p.title}" (ID: ${p.id})`));
+            
+            let project = allProjects.find(p => p.title === PROJECT_TITLE);
 
             if (!project) {
-              console.log(`❌ Project v2 "${PROJECT_TITLE}" not found`);
+              console.log(`❌ Project v2 "${PROJECT_TITLE}" not found. Available projects: ${allProjects.map(p => p.title).join(', ')}`);
               return;
             }
 
