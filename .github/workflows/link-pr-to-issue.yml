@@ -59,8 +59,8 @@ jobs:
               return;
             }
 
-            // Ищем префикс вида NOCOUNTRY-123 в названии PR
-            const match = pr.title.match(/NOCOUNTRY-(\d+)/i);
+            // Ищем префикс вида NOCOUNTRY-123 (допускаем разные разделители и тире)
+            const match = pr.title.match(/\bNOCOUNTRY[-_–— ]?(\d+)\b/i);
             if (!match) {
               console.log("❌ No NOCOUNTRY-<number> found in PR title");
               return;
