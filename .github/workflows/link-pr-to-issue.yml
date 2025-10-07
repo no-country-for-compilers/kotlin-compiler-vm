@@ -53,11 +53,11 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: linkedIssue.number,
-              body: `🔗 **PR #${pr.number}** фиксит эту issue: [${pr.title}](${pr.html_url})`
+              body: `🔗 **Связанный PR:** [#${pr.number} - ${pr.title}](${pr.html_url})`
             });
 
-            // Добавляем в тело PR ссылку на issue
-            const newBody = `${pr.body || ""}\n\n**Связанная issue:** #${linkedIssue.number}`;
+            // Добавляем в тело PR ссылку на issue с правильным форматом
+            const newBody = `${pr.body || ""}\n\nFixes #${linkedIssue.number}`;
             await github.rest.pulls.update({
               owner: context.repo.owner,
               repo: context.repo.repo,
