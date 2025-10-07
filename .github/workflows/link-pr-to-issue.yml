@@ -32,18 +32,19 @@ jobs:
               return;
             }
 
-            const issueKey = `NOCOUNTRY-${match[1]}`;
+            const issueNumber = match[1];
+            const issueKey = `NOCOUNTRY-${issueNumber}`;
 
-            // Ищем issue с этим же ключом в названии
+            // Ищем issue с префиксом NOCOUNTRY-123 в названии
             const { data: issues } = await github.rest.issues.listForRepo({
               owner: context.repo.owner,
               repo: context.repo.repo,
               state: "open"
             });
 
-            const linkedIssue = issues.find(i => i.title.startsWith(issueKey));
+            const linkedIssue = issues.find(i => i.title.includes(issueKey));
             if (!linkedIssue) {
-              console.log(`⚠️ Issue ${issueKey} not found`);
+              console.log(`⚠️ Issue with prefix ${issueKey} not found`);
               return;
             }
 
@@ -64,4 +65,4 @@ jobs:
               body: newBody
             });
 
-            console.log(`✅ Linked ${issueKey} → PR #${pr.number}`);
+            console.log(`✅ Linked PR #${pr.number} → Issue #${linkedIssue.number} (${issueKey})`);
