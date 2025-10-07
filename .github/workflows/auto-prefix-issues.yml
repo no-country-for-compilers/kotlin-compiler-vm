@@ -1,0 +1,32 @@
+name: Auto prefix issue titles with NOCOUNTRY-<number>
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  add-prefix:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Prefix issue title
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = context.payload.issue;
+
+            // Проверяем, есть ли уже нужный префикс
+            if (issue.title.match(/^NOCOUNTRY-\d+/i)) {
+              console.log("✅ Issue already has a NOCOUNTRY prefix");
+              return;
+            }
+
+            const newTitle = `NOCOUNTRY-${issue.number} ${issue.title.trim()}`;
+
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue.number,
+              title: newTitle
+            });
+
+            console.log(`✅ Updated issue title to "${newTitle}"`);
