@@ -40,8 +40,8 @@ jobs:
 
             const updatedTitle = `${prefix}${pr.title}`;
             await github.rest.pulls.update({
-              owner: repoOwner,
-              repo: repoName,
+              owner,
+              repo,
               pull_number: pr.number,
               title: updatedTitle
             });
