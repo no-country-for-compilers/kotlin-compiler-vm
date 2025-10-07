@@ -6,7 +6,8 @@ on:
 
 permissions:
   contents: read
-  issues: write  # нужно, чтобы Action мог менять заголовок issue
+  issues: write
+  pull-requests: write
 
 jobs:
   add-prefix:

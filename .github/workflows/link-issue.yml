@@ -3,6 +3,10 @@ name: Link PR to Issue
 on:
   pull_request:
     types: [opened, edited, reopened, synchronize]
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
 
 jobs:
   link:
