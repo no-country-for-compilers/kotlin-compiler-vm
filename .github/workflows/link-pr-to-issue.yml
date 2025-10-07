@@ -126,6 +126,115 @@ jobs:
 
             console.log(`✅ Linked PR #${pr.number} → Issue #${linkedIssue.number} (${issueKey})`);
 
+  move-to-review:
+    runs-on: ubuntu-latest
+    needs: link
+    if: github.event.action == 'opened' || github.event.action == 'edited' || github.event.action == 'reopened' || github.event.action == 'synchronize'
+    steps:
+      - name: Move linked issue to Review status in Project
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            if (pr.head.repo.full_name !== pr.base.repo.full_name) {
+              console.log("⚠️ PR is from a fork — skipping project move");
+              return;
+            }
+
+            const { owner, repo } = context.repo;
+            const PREFIX_REGEX = /\bNOCOUNTRY[-_–— ]?(\d+)\b/i;
+            const match = pr.title.match(PREFIX_REGEX);
+            if (!match) {
+              console.log("❌ No NOCOUNTRY-<number> found in PR title");
+              return;
+            }
+            const issueNumber = match[1];
+            const issueKey = `NOCOUNTRY-${issueNumber}`;
+
+            // Находим issue через search по префиксу
+            const search = await github.rest.search.issuesAndPullRequests({
+              q: `repo:${owner}/${repo} is:issue in:title "${issueKey}"`,
+              per_page: 50
+            });
+            const linkedIssue = search.data.items.find(i => i.title.startsWith(issueKey));
+            if (!linkedIssue) {
+              console.log(`⚠️ Issue with prefix ${issueKey} not found via search`);
+              return;
+            }
+            const issueNodeId = linkedIssue.node_id;
+
+            const PROJECT_TITLE = "NoCountry lang";
+            const STATUS_NAME = "Status";
+            const STATUS_VALUE = "Review";
+
+            // Ищем проект v2 в репозитории по названию
+            const repoProjects = await github.graphql(`
+              query($owner:String!, $repo:String!, $query:String!){
+                repository(owner:$owner, name:$repo){
+                  projectsV2(first:50, query:$query){ nodes { id title fields(first:50){ nodes { ... on ProjectV2SingleSelectField { id name options { id name } } } } } }
+                }
+              }
+            `, { owner, repo, query: PROJECT_TITLE });
+            let project = repoProjects?.repository?.projectsV2?.nodes?.find(p => p.title === PROJECT_TITLE);
+
+            if (!project) {
+              console.log(`❌ Project v2 "${PROJECT_TITLE}" not found`);
+              return;
+            }
+
+            const statusField = (project.fields.nodes || []).find(f => f && (f.name || "").toLowerCase() === STATUS_NAME.toLowerCase());
+            if (!statusField) {
+              console.log(`❌ Field "${STATUS_NAME}" not found in project`);
+              return;
+            }
+            const reviewOption = (statusField.options || []).find(o => (o.name || "").toLowerCase() === STATUS_VALUE.toLowerCase());
+            if (!reviewOption) {
+              console.log(`❌ Option "${STATUS_VALUE}" for field "${STATUS_NAME}" not found`);
+              return;
+            }
+
+            // Добавляем item в проект (или находим существующий)
+            let itemId = null;
+            try {
+              const addRes = await github.graphql(`
+                mutation($projectId:ID!, $contentId:ID!){
+                  addProjectV2ItemById(input:{projectId:$projectId, contentId:$contentId}){ item { id } }
+                }
+              `, { projectId: project.id, contentId: issueNodeId });
+              itemId = addRes?.addProjectV2ItemById?.item?.id || null;
+            } catch (e) {
+              console.log("ℹ️ Item may already exist in the project; trying to locate it");
+            }
+
+            if (!itemId) {
+              const itemsQuery = await github.graphql(`
+                query($projectId:ID!){
+                  node(id:$projectId){
+                    ... on ProjectV2 {
+                      items(first:100){ nodes { id content { ... on Issue { id number } } } }
+                    }
+                  }
+                }
+              `, { projectId: project.id });
+              const nodes = itemsQuery?.node?.items?.nodes || [];
+              const found = nodes.find(n => n.content && n.content.id === issueNodeId);
+              itemId = found?.id || null;
+            }
+
+            if (!itemId) {
+              console.log("❌ Could not obtain project item id for the issue");
+              return;
+            }
+
+            // Выставляем статус = Review
+            await github.graphql(`
+              mutation($projectId:ID!, $itemId:ID!, $fieldId:ID!, $optionId:String!){
+                updateProjectV2ItemFieldValue(input:{ projectId:$projectId, itemId:$itemId, fieldId:$fieldId, value:{ singleSelectOptionId:$optionId } }){ clientMutationId }
+              }
+            `, { projectId: project.id, itemId, fieldId: statusField.id, optionId: reviewOption.id });
+
+            console.log(`✅ Moved issue #${linkedIssue.number} to Project "${PROJECT_TITLE}" with Status "${STATUS_VALUE}"`);
+
   close-issue:
     runs-on: ubuntu-latest
     if: github.event.action == 'closed'
