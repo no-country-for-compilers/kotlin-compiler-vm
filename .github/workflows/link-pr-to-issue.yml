@@ -47,16 +47,16 @@ jobs:
               return;
             }
 
-            // Добавляем комментарий в issue
+            // Добавляем комментарий в issue со ссылкой на PR
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: linkedIssue.number,
-              body: `🔗 Связано с PR #${pr.number} (${pr.title})`
+              body: `🔗 **PR #${pr.number}** фиксит эту issue: [${pr.title}](${pr.html_url})`
             });
 
-            // Добавляем в тело PR ссылку Fixes #
-            const newBody = `${pr.body || ""}\n\nFixes #${linkedIssue.number}`;
+            // Добавляем в тело PR ссылку на issue
+            const newBody = `${pr.body || ""}\n\n**Связанная issue:** #${linkedIssue.number}`;
             await github.rest.pulls.update({
               owner: context.repo.owner,
               repo: context.repo.repo,
