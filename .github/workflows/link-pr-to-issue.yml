@@ -1,0 +1,67 @@
+name: Link PR to Issue by NOCOUNTRY key
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  link:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Link PR to issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+
+            // Пропускаем PR из fork — нет прав писать
+            if (pr.head.repo.full_name !== pr.base.repo.full_name) {
+              console.log("⚠️ PR is from a fork — skipping linking");
+              return;
+            }
+
+            // Ищем префикс вида NOCOUNTRY-123 в названии PR
+            const match = pr.title.match(/NOCOUNTRY-(\d+)/i);
+            if (!match) {
+              console.log("❌ No NOCOUNTRY-<number> found in PR title");
+              return;
+            }
+
+            const issueKey = `NOCOUNTRY-${match[1]}`;
+
+            // Ищем issue с этим же ключом в названии
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: "open"
+            });
+
+            const linkedIssue = issues.find(i => i.title.startsWith(issueKey));
+            if (!linkedIssue) {
+              console.log(`⚠️ Issue ${issueKey} not found`);
+              return;
+            }
+
+            // Добавляем комментарий в issue
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: linkedIssue.number,
+              body: `🔗 Связано с PR #${pr.number} (${pr.title})`
+            });
+
+            // Добавляем в тело PR ссылку Fixes #
+            const newBody = `${pr.body || ""}\n\nFixes #${linkedIssue.number}`;
+            await github.rest.pulls.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pr.number,
+              body: newBody
+            });
+
+            console.log(`✅ Linked ${issueKey} → PR #${pr.number}`);
