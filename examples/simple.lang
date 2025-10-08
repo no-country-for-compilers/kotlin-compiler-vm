@@ -1,0 +1,9 @@
+// Simple program for testing the lexer
+func main(): void {
+    let x: int = 42;
+    let y: int = 10;
+    let sum: int = x + y;
+    let product: int = x * y;
+    let flag: bool = x > y;
+}
+
