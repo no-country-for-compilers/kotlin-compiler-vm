@@ -5,6 +5,7 @@
 Проект представляет собой полноценную систему компиляции и выполнения для собственного языка программирования с автоматическим управлением памятью и JIT-компилятором.
 
 **Ключевые особенности:**
+
 - Строгая статическая типизация
 - 64-битные целые числа (`int`) для поддержки больших вычислений (факториал 20!)
 - Стековая виртуальная машина с байткодом
@@ -80,11 +81,13 @@ Source Code (.lang)
 **Цель:** Преобразование текста в последовательность токенов
 
 **Входные данные:**
+
 ```kotlin
 let x: int = 42;
 ```
 
 **Выходные данные:**
+
 ```
 Token(LET), Token(IDENTIFIER, "x"), Token(COLON), 
 Token(TYPE_INT), Token(ASSIGN), Token(NUMBER, 42), 
@@ -92,6 +95,7 @@ Token(SEMICOLON)
 ```
 
 **Задачи:**
+
 - Распознавание ключевых слов (`let`, `func`, `if`, `for`, etc.)
 - Идентификация литералов (числа, `true`/`false`)
 - Обработка операторов (`+`, `-`, `*`, `/`, `==`, etc.)
@@ -99,9 +103,10 @@ Token(SEMICOLON)
 - Отслеживание позиций для сообщений об ошибках
 
 **Интерфейс:**
+
 ```kotlin
-interface Lexer {
-    fun tokenize(source: String): List<Token>
+class Lexer(private val source: String) {
+    fun tokenize(): List<Token>
 }
 ```
 
@@ -118,24 +123,62 @@ interface Lexer {
 **Метод:** Recursive Descent Parser (рекурсивный спуск)
 
 **Пример AST:**
+
 ```
 Program
 ├─ FunctionDecl: "factorial"
-│  ├─ Parameter: (n: int)
+│  ├─ Parameters:
+│  └─ n: int
 │  ├─ ReturnType: int
 │  └─ Body:
-│     └─ IfStatement
-│        ├─ Condition: BinaryExpr(n <= 1)
-│        ├─ Then: Return(1)
-│        └─ Else: Return(n * factorial(n-1))
+│     └─ Block
+│        └─ IfStmt
+│           ├─ Condition:
+│           │  └─ BinaryExpr(LE)
+│           │     ├─ Left:
+│           │     │  ├─ Variable(n)
+│           │     └─ Right:
+│           │        └─ Literal(1)
+│           ├─ Then:
+│           │  ├─ Block
+│           │  │  └─ Return
+│           │  │     └─ Value:
+│           │  │        └─ Literal(1)
+│           └─ Else:
+│              └─ Block
+│                 └─ Return
+│                    └─ Value:
+│                       └─ BinaryExpr(STAR)
+│                          ├─ Left:
+│                          │  ├─ Variable(n)
+│                          └─ Right:
+│                             └─ Call
+│                                ├─ Callee:
+│                                │  ├─ Variable(factorial)
+│                                └─ Args:
+│                                   └─ BinaryExpr(MINUS)
+│                                      ├─ Left:
+│                                      │  ├─ Variable(n)
+│                                      └─ Right:
+│                                         └─ Literal(1)
 └─ FunctionDecl: "main"
-   └─ Body: ...
+   ├─ ReturnType: void
+   └─ Body:
+      └─ Block
+         └─ VarDecl: result: int
+            └─ Initializer:
+               └─ Call
+                  ├─ Callee:
+                  │  ├─ Variable(factorial)
+                  └─ Args:
+                     └─ Literal(20)
 ```
 
 **Интерфейс:**
+
 ```kotlin
-interface Parser {
-    fun parse(tokens: List<Token>): Program
+class Parser(private val tokens: List<Token>) {
+    fun parse(): Program
 }
 
 sealed class ASTNode
@@ -143,6 +186,7 @@ data class Program(val statements: List<Statement>) : ASTNode()
 ```
 
 **Преимущества Recursive Descent:**
+
 - Простота реализации
 - Понятный код, легко отлаживать
 - Естественное соответствие грамматике языка
@@ -157,6 +201,7 @@ data class Program(val statements: List<Statement>) : ASTNode()
 **Основные задачи:**
 
 #### 3.1 Type Checking (Проверка типов)
+
 ```kotlin
 // ✅ Корректно
 let x: int = 5 + 3;
@@ -166,12 +211,14 @@ let x: int = 3.14;  // Expected int, got float
 ```
 
 #### 3.2 Name Resolution (Разрешение имен)
+
 ```kotlin
 // ❌ Неопределенная переменная
 let y: int = z + 1;  // Error: undefined variable 'z'
 ```
 
 #### 3.3 Scope Management (Управление областями видимости)
+
 ```kotlin
 func foo(): void {
     let x: int = 10;
@@ -183,6 +230,7 @@ func bar(): void {
 ```
 
 #### 3.4 Return Type Validation
+
 ```kotlin
 func getNumber(): int {
     return true;  // ❌ Error: expected int, got bool
@@ -190,11 +238,13 @@ func getNumber(): int {
 ```
 
 **Выходные данные:**
+
 - Annotated AST (узлы AST аннотированы информацией о типах)
 - Symbol Table (таблица всех переменных и функций)
 - Список ошибок (если есть)
 
 **Интерфейс:**
+
 ```kotlin
 interface SemanticAnalyzer {
     fun analyze(ast: Program): AnalysisResult
@@ -218,11 +268,13 @@ data class AnalysisResult(
 **Выходные данные:** Bytecode Module
 
 **Тип VM:** Stack-based (стековая машина)
+
 - Проще в реализации
 - Компактный код
 - Независимость от архитектуры процессора
 
 **Концептуальный пример:**
+
 ```kotlin
 // Исходный код:
 let x: int = 5 + 3;
@@ -235,6 +287,7 @@ STORE x        // Сохранить результат в x
 ```
 
 **Структура модуля:**
+
 ```kotlin
 data class BytecodeModule(
     val constants: ConstantPool,
@@ -254,6 +307,7 @@ data class BytecodeModule(
 **Архитектура:** Stack-based
 
 **Основные элементы:**
+
 ```kotlin
 class VirtualMachine {
     private val operandStack: Stack<Value>      // Стек для вычислений
@@ -265,6 +319,7 @@ class VirtualMachine {
 ```
 
 **Execution Model:**
+
 ```
 ┌──────────────────────┐
 │   Operand Stack      │  ← Промежуточные результаты вычислений
@@ -290,15 +345,18 @@ class VirtualMachine {
 **Фазы работы:**
 
 **Phase 1 - Mark (Маркировка):**
+
 - Начать с "корней" (stack, call frames, globals)
 - Рекурсивно пометить все достижимые объекты
 
 **Phase 2 - Sweep (Очистка):**
+
 - Пройти по всем объектам в куче
 - Удалить непомеченные объекты
 - Освободить память
 
 **Триггеры запуска:**
+
 - Достижение порога памяти (например, heap > 1MB)
 - Явный запрос при аллокации нового объекта
 
@@ -315,6 +373,7 @@ class GarbageCollector {
 ```
 
 **Преимущества Mark-and-Sweep:**
+
 - ✅ Простота реализации
 - ✅ Не требует перемещения объектов
 - ✅ Работает с циклическими ссылками
@@ -357,6 +416,7 @@ class JITCompiler {
 ```
 
 **Подходы к реализации JIT:**
+
 - **Вариант 1:** Оптимизированный интерпретатор (специализация для конкретной функции)
 - **Вариант 2:** Компиляция в JVM байткод (используя возможности Kotlin/JVM)
 - **Вариант 3:** Генерация нативного кода (сложнее, но быстрее)
@@ -377,6 +437,7 @@ class JITCompiler {
 | `float[]` | - | - | Массив чисел с плавающей точкой (в куче) |
 
 **Обоснование размеров:**
+
 - **int как 64-bit:** Необходимо для вычисления факториала 20! = 2,432,902,008,176,640,000
 - **float как double:** Обеспечивает достаточную точность для научных вычислений
 - **Массивы:** Поддержка больших массивов (до 10000+ элементов) для бенчмарков
@@ -420,6 +481,7 @@ sealed class Value {
 ## Технологический стек
 
 ### Язык: Kotlin
+
 - ✅ Null-safety
 - ✅ Sealed classes (идеально для AST)
 - ✅ Data classes
@@ -427,13 +489,15 @@ sealed class Value {
 - ✅ Хорошая производительность
 - ✅ Межплатформенность
 
-### Инструменты:
+### Инструменты
+
 - **Gradle** - система сборки
 - **JUnit 5** - тестирование
 - **Detekt** - статический анализ
 - **JMH** - бенчмарки производительности
 
-### Структура проекта:
+### Структура проекта
+
 ```
 kotlin-compiler-vm/
 ├── src/
@@ -463,19 +527,22 @@ kotlin-compiler-vm/
 
 ## Критерии успеха
 
-### Функциональные требования:
+### Функциональные требования
+
 - ✅ Корректное выполнение факториала
 - ✅ Корректная сортировка массива
 - ✅ Корректная генерация простых чисел
 - ✅ Отсутствие утечек памяти (GC работает)
 - ✅ Ускорение от JIT (минимум 2x)
 
-### Требования к производительности:
+### Требования к производительности
+
 - ✅ Факториал(20) - выполнение за разумное время
 - ✅ Сортировка 10000 элементов - < 1 секунды с JIT
 - ✅ Простые числа до 100000 - < 2 секунд с JIT
 
-### Требования к качеству:
+### Требования к качеству
+
 - ✅ Unit-тесты для всех компонентов
 - ✅ Integration тесты для полного pipeline
 - ✅ Понятные сообщения об ошибках
@@ -483,35 +550,10 @@ kotlin-compiler-vm/
 
 ---
 
-## Опциональные расширения (если успеете)
-
-### Улучшения компилятора:
-- Оптимизации (constant folding, dead code elimination)
-- Лучшие сообщения об ошибках (с подсветкой кода)
-- Warnings (неиспользуемые переменные и т.д.)
-
-### Улучшения VM:
-- Более продвинутый GC (generational, incremental)
-- Более агрессивный JIT (trace-based, инлайнинг)
-- Profiling инструменты
-
-### Tooling:
-- REPL (интерактивная консоль)
-- Дизассемблер байткода
-- Визуализация AST
-- Debugger
-
-### Расширения языка:
-- While циклы
-- Break/continue
-- Функции высшего порядка
-- Простые классы
-
----
-
 ## Заключение
 
 Данная архитектура обеспечивает:
+
 - ✅ Четкое разделение ответственности между компонентами
 - ✅ Возможность параллельной разработки
 - ✅ Тестируемость каждого этапа
