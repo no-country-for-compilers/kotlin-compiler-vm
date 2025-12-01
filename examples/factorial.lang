@@ -11,4 +11,3 @@ func main(): void {
     let result: int = factorial(20);
     // result = 2432902008176640000
 }
-
