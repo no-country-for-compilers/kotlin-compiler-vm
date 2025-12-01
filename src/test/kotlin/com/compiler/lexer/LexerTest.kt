@@ -340,7 +340,7 @@ class LexerTest {
         // Все токены должны быть на строке 1
         tokens.forEach { token ->
             if (token.type != TokenType.EOF) {
-                assertEquals(1, token.line)
+                assertEquals(1, token.pos.line)
             }
         }
     }
@@ -355,11 +355,11 @@ class LexerTest {
         val tokens = tokenize(source)
         
         // Первая let на строке 1
-        assertEquals(1, tokens[0].line)
+        assertEquals(1, tokens[0].pos.line)
         
         // Вторая let на строке 2
-        val secondLet = tokens.first { it.lexeme == "let" && it.line == 2 }
-        assertEquals(2, secondLet.line)
+        val secondLet = tokens.first { it.lexeme == "let" && it.pos.line == 2 }
+        assertEquals(2, secondLet.pos.line)
     }
     
     @Test

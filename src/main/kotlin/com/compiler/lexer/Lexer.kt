@@ -1,5 +1,7 @@
 package com.compiler.lexer
 
+import com.compiler.domain.SourcePos
+
 /**
  * Lexical analyzer (Lexer/Tokenizer)
  * Converts source code into a sequence of tokens
@@ -7,7 +9,7 @@ package com.compiler.lexer
 class Lexer(private val source: String) {
     private var current = 0  // current position in source
     private var line = 1     // current line
-    private var column = 1   // current column
+    private var column = 1   // current pos
     
     private val tokens = mutableListOf<Token>()
     
@@ -36,7 +38,7 @@ class Lexer(private val source: String) {
         }
         
         // Add EOF token at the end
-        tokens.add(Token(TokenType.EOF, "", line, column))
+        tokens.add(Token(TokenType.EOF, "", pos = SourcePos(line, column)))
         return tokens
     }
     
@@ -57,20 +59,20 @@ class Lexer(private val source: String) {
             }
             
             // Single character tokens
-            '(' -> addToken(TokenType.LPAREN, "(")
-            ')' -> addToken(TokenType.RPAREN, ")")
-            '{' -> addToken(TokenType.LBRACE, "{")
-            '}' -> addToken(TokenType.RBRACE, "}")
-            '[' -> addToken(TokenType.LBRACKET, "[")
-            ']' -> addToken(TokenType.RBRACKET, "]")
-            ';' -> addToken(TokenType.SEMICOLON, ";")
-            ':' -> addToken(TokenType.COLON, ":")
-            ',' -> addToken(TokenType.COMMA, ",")
-            '.' -> addToken(TokenType.DOT, ".")
-            '+' -> addToken(TokenType.PLUS, "+")
-            '-' -> addToken(TokenType.MINUS, "-")
-            '*' -> addToken(TokenType.STAR, "*")
-            '%' -> addToken(TokenType.PERCENT, "%")
+            '(' -> addToken(TokenType.LPAREN, "(", startColumn)
+            ')' -> addToken(TokenType.RPAREN, ")", startColumn)
+            '{' -> addToken(TokenType.LBRACE, "{", startColumn)
+            '}' -> addToken(TokenType.RBRACE, "}", startColumn)
+            '[' -> addToken(TokenType.LBRACKET, "[", startColumn)
+            ']' -> addToken(TokenType.RBRACKET, "]", startColumn)
+            ';' -> addToken(TokenType.SEMICOLON, ";", startColumn)
+            ':' -> addToken(TokenType.COLON, ":", startColumn)
+            ',' -> addToken(TokenType.COMMA, ",", startColumn)
+            '.' -> addToken(TokenType.DOT, ".", startColumn)
+            '+' -> addToken(TokenType.PLUS, "+", startColumn)
+            '-' -> addToken(TokenType.MINUS, "-", startColumn)
+            '*' -> addToken(TokenType.STAR, "*", startColumn)
+            '%' -> addToken(TokenType.PERCENT, "%", startColumn)
             
             // Two-character operators
             '/' -> {
@@ -80,55 +82,55 @@ class Lexer(private val source: String) {
                         advance()
                     }
                 } else {
-                    addToken(TokenType.SLASH, "/")
+                    addToken(TokenType.SLASH, "/", startColumn)
                 }
             }
             
             '=' -> {
                 if (match('=')) {
-                    addToken(TokenType.EQ, "==")
+                    addToken(TokenType.EQ, "==", startColumn)
                 } else {
-                    addToken(TokenType.ASSIGN, "=")
+                    addToken(TokenType.ASSIGN, "=", startColumn)
                 }
             }
             
             '!' -> {
                 if (match('=')) {
-                    addToken(TokenType.NE, "!=")
+                    addToken(TokenType.NE, "!=", startColumn)
                 } else {
-                    addToken(TokenType.NOT, "!")
+                    addToken(TokenType.NOT, "!", startColumn)
                 }
             }
             
             '<' -> {
                 if (match('=')) {
-                    addToken(TokenType.LE, "<=")
+                    addToken(TokenType.LE, "<=", startColumn)
                 } else {
-                    addToken(TokenType.LT, "<")
+                    addToken(TokenType.LT, "<", startColumn)
                 }
             }
             
             '>' -> {
                 if (match('=')) {
-                    addToken(TokenType.GE, ">=")
+                    addToken(TokenType.GE, ">=", startColumn)
                 } else {
-                    addToken(TokenType.GT, ">")
+                    addToken(TokenType.GT, ">", startColumn)
                 }
             }
             
             '&' -> {
                 if (match('&')) {
-                    addToken(TokenType.AND, "&&")
+                    addToken(TokenType.AND, "&&", startColumn)
                 } else {
-                    error(line, startColumn, "Unexpected character: '$c'. Did you mean '&&'?")
+                    error(startColumn, "Unexpected character: '$c'. Did you mean '&&'?")
                 }
             }
             
             '|' -> {
                 if (match('|')) {
-                    addToken(TokenType.OR, "||")
+                    addToken(TokenType.OR, "||", startColumn)
                 } else {
-                    error(line, startColumn, "Unexpected character: '$c'. Did you mean '||'?")
+                    error(startColumn, "Unexpected character: '$c'. Did you mean '||'?")
                 }
             }
             
@@ -138,7 +140,7 @@ class Lexer(private val source: String) {
             // Identifiers and keywords
             in 'a'..'z', in 'A'..'Z', '_' -> identifier(startColumn)
             
-            else -> error(line, startColumn, "Unexpected character: '$c'")
+            else -> error(startColumn, "Unexpected character: '$c'")
         }
     }
     
@@ -174,7 +176,7 @@ class Lexer(private val source: String) {
             }
             
             if (!peek().isDigit()) {
-                error(line, column, "Expected digit after exponent")
+                error(column, "Expected digit after exponent")
                 return
             }
             
@@ -188,16 +190,16 @@ class Lexer(private val source: String) {
         if (isFloat) {
             val value = lexeme.toDoubleOrNull()
             if (value != null) {
-                addToken(TokenType.FLOAT_LITERAL, lexeme, value)
+                addToken(TokenType.FLOAT_LITERAL, lexeme, value, startColumn)
             } else {
-                error(line, startColumn, "Invalid float literal: $lexeme")
+                error(startColumn, "Invalid float literal: $lexeme")
             }
         } else {
             val value = lexeme.toLongOrNull()
             if (value != null) {
-                addToken(TokenType.INT_LITERAL, lexeme, value)
+                addToken(TokenType.INT_LITERAL, lexeme, value, startColumn)
             } else {
-                error(line, startColumn, "Invalid integer literal: $lexeme (out of range for 64-bit int)")
+                error(startColumn, "Invalid integer literal: $lexeme (out of range for 64-bit int)")
             }
         }
     }
@@ -215,13 +217,14 @@ class Lexer(private val source: String) {
         val text = source.substring(start, current)
         val type = keywords[text] ?: TokenType.IDENTIFIER
         
-        addToken(type, text)
+        addToken(type, text, startColumn)
     }
     
     /**
      * Advance position and return current character
      */
     private fun advance(): Char {
+        if (isAtEnd()) return '\u0000'
         val c = source[current]
         current++
         column++
@@ -262,26 +265,27 @@ class Lexer(private val source: String) {
     private fun isAtEnd(): Boolean {
         return current >= source.length
     }
-    
+
     /**
-     * Add token without value
+     * Add token without value; explicit start column provided
      */
-    private fun addToken(type: TokenType, lexeme: String) {
-        tokens.add(Token(type, lexeme, line, column - lexeme.length, null))
+    private fun addToken(type: TokenType, lexeme: String, startColumn: Int) {
+        tokens.add(Token(type, lexeme, pos = SourcePos(line, startColumn)))
     }
-    
+
+
     /**
-     * Add token with value
+     * Add token with value; explicit start column provided
      */
-    private fun addToken(type: TokenType, lexeme: String, literal: Any) {
-        tokens.add(Token(type, lexeme, line, column - lexeme.length, literal))
+    private fun addToken(type: TokenType, lexeme: String, literal: Any, startColumn: Int) {
+        tokens.add(Token(type, lexeme, literal, pos = SourcePos(line, startColumn)))
     }
     
     /**
      * Error handling
      */
-    private fun error(line: Int, column: Int, message: String) {
-        throw LexerException(line, column, message)
+    private fun error(column: Int, message: String) {
+        throw LexerException(SourcePos(line, column), message)
     }
 }
 
@@ -289,7 +293,6 @@ class Lexer(private val source: String) {
  * Lexer exception
  */
 class LexerException(
-    val line: Int,
-    val column: Int,
+    val pos: SourcePos,
     message: String
-) : Exception("Lexer error at $line:$column: $message")
+) : Exception("Lexer error at ${pos.line}:${pos.column}: $message")
