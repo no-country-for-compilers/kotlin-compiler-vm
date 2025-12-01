@@ -2,6 +2,7 @@ package com.compiler
 
 import com.compiler.lexer.Token
 import com.compiler.parser.*
+import com.compiler.parser.ast.*
 
 object Printer {
 
