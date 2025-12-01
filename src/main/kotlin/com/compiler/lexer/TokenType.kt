@@ -63,7 +63,5 @@ enum class TokenType {
     RBRACKET,   // ]
     
     // Special
-    EOF,        // end of file
-    NEWLINE     // newline (for position tracking)
+    EOF         // end of file
 }
-

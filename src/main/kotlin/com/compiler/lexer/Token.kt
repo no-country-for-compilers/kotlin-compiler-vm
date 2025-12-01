@@ -1,26 +1,26 @@
 package com.compiler.lexer
 
+import com.compiler.domain.SourcePos
+
 /**
  * Token - minimal unit of source code
  * 
  * @property type token type
  * @property lexeme source text of the token
- * @property line line number (starting from 1)
- * @property column column number (starting from 1)
  * @property literal literal value (for numbers)
+ * @property pos position in source code
  */
 data class Token(
     val type: TokenType,
     val lexeme: String,
-    val line: Int,
-    val column: Int,
-    val literal: Any? = null
+    val literal: Any? = null,
+    val pos: SourcePos,
 ) {
     override fun toString(): String {
         return if (literal != null) {
-            "Token($type, '$lexeme', literal=$literal, pos=$line:$column)"
+            "Token($type, '$lexeme', literal=$literal, pos=${pos.line}:${pos.column})"
         } else {
-            "Token($type, '$lexeme', pos=$line:$column)"
+            "Token($type, '$lexeme', pos=${pos.line}:${pos.column})"
         }
     }
     
@@ -35,4 +35,3 @@ data class Token(
         }
     }
 }
-
