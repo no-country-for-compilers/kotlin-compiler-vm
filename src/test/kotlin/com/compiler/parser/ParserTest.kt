@@ -350,40 +350,6 @@ class ParserTest {
                 assertTrue(ifStmt.elseBranch is BlockStmt)
         }
 
-        // --- Error recovery: missing semicolon should not crash parser and parser should produce
-        // remaining statements ---
-        @Test
-        fun `parser error recovery continues after syntax error`() {
-                val tokens =
-                        listOf(
-                                // let x: int = 1    <-- missing semicolon
-                                token(TokenType.LET),
-                                ident("x"),
-                                token(TokenType.COLON),
-                                token(TokenType.TYPE_INT),
-                                token(TokenType.ASSIGN),
-                                intLit(1L),
-                                // next valid declaration:
-                                token(TokenType.LET),
-                                ident("y"),
-                                token(TokenType.COLON),
-                                token(TokenType.TYPE_INT),
-                                token(TokenType.ASSIGN),
-                                intLit(2L),
-                                token(TokenType.SEMICOLON),
-                                eof()
-                        )
-
-                val p = Parser(tokens)
-                val program = p.parse()
-
-                // Parser should recover and produce the second declaration
-                assertEquals(1, program.statements.size)
-                val varDecl = program.statements[0]
-                assertTrue(varDecl is VarDecl)
-                assertEquals("y", (varDecl as VarDecl).identifier)
-        }
-
         // --- Logical expressions ---
         @Test
         fun `parse complex logical expression`() {

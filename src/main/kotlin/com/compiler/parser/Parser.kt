@@ -20,16 +20,12 @@ class Parser(private val tokens: List<Token>) {
      * program ::= declaration* EOF
      * ```
      *
-     * @return узел Program, содержащий список разобранных инструкций. Поддерживается восстановление после ошибок: разбор продолжается даже после синтаксических ошибок.
+     * @return узел Program, содержащий список разобранных инструкций.
      */
     fun parse(): Program {
         val statements = mutableListOf<Statement>()
         while (!isAtEnd()) {
-            try {
-                statements.add(declaration())
-            } catch (e: ParseException) {
-                synchronize()
-            }
+            statements.add(declaration())
         }
         return Program(statements)
     }
