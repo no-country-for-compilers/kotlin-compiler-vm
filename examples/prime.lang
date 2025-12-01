@@ -1,0 +1,21 @@
+func isPrime(n: int): bool {
+    if (n < 2) {
+        return false;
+    }
+    for (let i: int = 2; i * i <= n; i = i + 1) {
+        if (n % i == 0) {
+            return false;
+        }
+    }
+    return true;
+}
+
+func findPrimes(limit: int): int[] {
+    let primes: int[] = [];
+    for (let i: int = 2; i <= limit; i = i + 1) {
+        if (isPrime(i)) {
+            primes.append(i);
+        }
+    }
+    return primes;
+}
