@@ -135,7 +135,7 @@ if (x > 10) {
 
 ### 4. Циклы
 
-#### Простой цикл for
+#### Классический цикл for
 
 ```
 for (<initialization>; <condition>; <increment>) {
@@ -143,25 +143,11 @@ for (<initialization>; <condition>; <increment>) {
 }
 ```
 
-#### Цикл for с условием (аналог while)
-
-```
-for (<condition>) {
-    <statements>
-}
-```
-
-**Примеры:**
+**Пример:**
 
 ```kotlin
 for (let i: int = 0; i < 10; i = i + 1) {
     print(i);
-}
-
-let x: int = 10;
-for (x > 0) {
-    print(x);
-    x = x - 1;
 }
 ```
 
@@ -174,7 +160,7 @@ func <identifier>(<parameters>): <return_type> {
 }
 ```
 
-**Примеры:**
+**Пример:**
 
 ```kotlin
 func factorial(n: int): int {
@@ -281,7 +267,6 @@ expression_statement ::= expression ";"
 if_statement ::= "if" "(" expression ")" "{" statement* "}" ["else" "{" { statement } "}"]
 
 for_statement ::= "for" "(" [variable_declaration] ";" [expression] ";" [expression] ")" "{" { statement } "}"
-                | "for" "(" [expression] ")" "{" statement* "}"
 
 return_statement ::= "return" [expression] ";"
 

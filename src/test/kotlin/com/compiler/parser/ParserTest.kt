@@ -3,6 +3,7 @@ package com.compiler.parser
 import com.compiler.domain.SourcePos
 import com.compiler.lexer.Token
 import com.compiler.lexer.TokenType
+import com.compiler.parser.ast.*
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 

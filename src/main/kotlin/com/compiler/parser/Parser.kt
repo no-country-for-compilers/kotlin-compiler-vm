@@ -190,16 +190,6 @@ class Parser(private val tokens: List<Token>) {
     private fun forStatement(): ForStmt {
         consume(TokenType.LPAREN, "Expected '(' after 'for'")
 
-        // Проверка формы с одним выражением: for (<expression>) { ... }
-        if (isForConditionForm()) {
-            val condition = expression()
-            consume(TokenType.RPAREN, "Expected ')' after for condition")
-            val bodyStmt = statement()
-            val body = toBlockStmt(bodyStmt)
-            return ForStmt(ForNoInit, condition, null, body)
-        }
-
-        // Классическая форма с тремя частями
         val initializer: ForInitializer =
             when {
                 match(TokenType.SEMICOLON) -> ForNoInit
@@ -531,38 +521,6 @@ class Parser(private val tokens: List<Token>) {
      * Вспомогательный метод для защиты от ошибок при оборачивании одиночной инструкции. 
      */
     private fun thenBranchOrSingleStatement(thenBranch: Statement): Statement = thenBranch
-
-
-    /**
-     * Вспомогательный метод: проверяет, является ли заголовок for формой с одним выражением.
-     * Возвращает true, если ')' встречается на верхнем уровне раньше ';' (т.е. for (<expr>)). Этот
-     * метод не продвигает текущий токен.
-     */
-    private fun isForConditionForm(): Boolean {
-        var temp = current
-        var nesting = 0
-        while (temp < tokens.size) {
-            val t = tokens[temp]
-            when (t.type) {
-                TokenType.LPAREN -> nesting++
-                TokenType.RPAREN -> {
-                    if (nesting == 0) {
-                        return true
-                    } else {
-                        nesting--
-                    }
-                }
-                TokenType.SEMICOLON -> {
-                    if (nesting == 0) {
-                        return false
-                    }
-                }
-                else -> {}
-            }
-            temp++
-        }
-        return false
-    }
 
     private fun match(vararg types: TokenType): Boolean {
         for (t in types) {
