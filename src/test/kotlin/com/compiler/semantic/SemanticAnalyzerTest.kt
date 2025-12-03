@@ -4,6 +4,7 @@ import com.compiler.lexer.Lexer
 import com.compiler.parser.Parser
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 
 class SemanticAnalyzerTest {
     private fun analyze(source: String): AnalysisResult {
@@ -33,7 +34,7 @@ class SemanticAnalyzerTest {
         """.trimIndent()
 
         val result = analyze(source)
-        assertTrue(result.errors.isEmpty(), "Expected no semantic errors, got: ${result.errors}")
+        assertNull(result.error, "Expected no semantic errors, got: ${result.error}")
     }
 
     @Test
@@ -44,10 +45,12 @@ class SemanticAnalyzerTest {
             }
         """.trimIndent()
 
-        val result = analyze(source)
+        val exception = assertThrows<SemanticException> {
+            analyze(source)
+        }
         assertTrue(
-            result.errors.any { it.message.contains("Undefined variable 'y'") },
-            "Expected undefined variable error, got: ${result.errors}"
+            exception.message?.contains("Undefined variable 'y'") == true,
+            "Expected undefined variable error, got: ${exception.message}"
         )
     }
 
@@ -59,10 +62,12 @@ class SemanticAnalyzerTest {
             }
         """.trimIndent()
 
-        val result = analyze(source)
+        val exception = assertThrows<SemanticException> {
+            analyze(source)
+        }
         assertTrue(
-            result.errors.any { it.message.contains("Type mismatch") },
-            "Expected type mismatch error, got: ${result.errors}"
+            exception.message?.contains("Type mismatch") == true,
+            "Expected type mismatch error, got: ${exception.message}"
         )
     }
 
@@ -78,10 +83,12 @@ class SemanticAnalyzerTest {
             }
         """.trimIndent()
 
-        val result = analyze(source)
+        val exception = assertThrows<SemanticException> {
+            analyze(source)
+        }
         assertTrue(
-            result.errors.any { it.message.contains("Type mismatch for argument 1 of function 'foo'") },
-            "Expected argument type mismatch error, got: ${result.errors}"
+            exception.message?.contains("Type mismatch for argument 1 of function 'foo'") == true,
+            "Expected argument type mismatch error, got: ${exception.message}"
         )
     }
 
@@ -93,10 +100,12 @@ class SemanticAnalyzerTest {
             }
         """.trimIndent()
 
-        val result = analyze(source)
+        val exception = assertThrows<SemanticException> {
+            analyze(source)
+        }
         assertTrue(
-            result.errors.any { it.message.contains("Missing return value in function 'foo'") },
-            "Expected missing return value error, got: ${result.errors}"
+            exception.message?.contains("Missing return value in function 'foo'") == true,
+            "Expected missing return value error, got: ${exception.message}"
         )
     }
 
@@ -108,10 +117,12 @@ class SemanticAnalyzerTest {
             }
         """.trimIndent()
 
-        val result = analyze(source)
+        val exception = assertThrows<SemanticException> {
+            analyze(source)
+        }
         assertTrue(
-            result.errors.any { it.message.contains("void type must not return a value") },
-            "Expected error about returning value from void function, got: ${result.errors}"
+            exception.message?.contains("void type must not return a value") == true,
+            "Expected error about returning value from void function, got: ${exception.message}"
         )
     }
 
@@ -123,10 +134,12 @@ class SemanticAnalyzerTest {
             }
         """.trimIndent()
 
-        val result = analyze(source)
+        val exception = assertThrows<SemanticException> {
+            analyze(source)
+        }
         assertTrue(
-            result.errors.any { it.message.contains("Array literal elements must have the same type") },
-            "Expected array literal element type error, got: ${result.errors}"
+            exception.message?.contains("Array literal elements must have the same type") == true,
+            "Expected array literal element type error, got: ${exception.message}"
         )
     }
 }

@@ -241,7 +241,10 @@ func getNumber(): int {
 
 - Annotated AST (узлы AST аннотированы информацией о типах)
 - Symbol Table (таблица всех переменных и функций)
-- Список ошибок (если есть)
+
+**Обработка ошибок:**
+
+При обнаружении первой семантической ошибки анализатор немедленно выбрасывает исключение `SemanticException`, прерывая дальнейший анализ. Это позволяет быстро сообщить пользователю о проблеме без накопления множества ошибок.
 
 **Интерфейс:**
 
@@ -251,10 +254,15 @@ interface SemanticAnalyzer {
 }
 
 data class AnalysisResult(
-    val annotatedAST: Program,
-    val symbolTable: SymbolTable,
-    val errors: List<SemanticError>
+    val program: Program,
+    val globalScope: Scope,
+    val error: SemanticError?  // null при успешном анализе
 )
+
+class SemanticException(
+    val pos: SourcePos?,
+    message: String
+) : RuntimeException(...)
 ```
 
 ---

@@ -2,6 +2,7 @@ package com.compiler.semantic
 
 import com.compiler.parser.ast.Program
 import com.compiler.parser.ast.TypeNode
+import com.compiler.domain.SourcePos
 
 sealed class Type {
     object Int : Type()
@@ -69,6 +70,9 @@ class Scope(val parent: Scope?) {
 
     fun resolveFunction(name: String): FunctionSymbol? =
         functions[name] ?: parent?.resolveFunction(name)
+
+    fun getAllVariables(): Map<String, VariableSymbol> = variables.toMap()
+    fun getAllFunctions(): Map<String, FunctionSymbol> = functions.toMap()
 }
 
 data class SemanticError(
@@ -76,8 +80,25 @@ data class SemanticError(
     val position: Any?
 )
 
+/**
+ * Исключение, выбрасываемое семантическим анализатором при обнаружении семантической ошибки.
+ *
+ * @property pos позиция в исходном коде, где произошла ошибка (может быть null)
+ * @param message описание семантической ошибки
+ */
+class SemanticException(
+    val pos: SourcePos?,
+    message: String
+) : RuntimeException(
+    if (pos != null) {
+        "Semantic error at ${pos.line}:${pos.column}: $message"
+    } else {
+        "Semantic error: $message"
+    }
+)
+
 data class AnalysisResult(
     val program: Program,
     val globalScope: Scope,
-    val errors: List<SemanticError>
+    val error: SemanticError?
 )

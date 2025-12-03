@@ -2,6 +2,7 @@ package com.compiler.semantic
 
 import com.compiler.parser.ast.*
 import com.compiler.lexer.TokenType
+import com.compiler.domain.SourcePos
 
 interface SemanticAnalyzer {
     fun analyze(program: Program): AnalysisResult
@@ -9,12 +10,10 @@ interface SemanticAnalyzer {
 
 class DefaultSemanticAnalyzer : SemanticAnalyzer {
 
-    private val errors = mutableListOf<SemanticError>()
     private lateinit var globalScope: Scope
     private var currentFunction: FunctionSymbol? = null
 
     override fun analyze(program: Program): AnalysisResult {
-        errors.clear()
         globalScope = Scope(parent = null)
 
         for (stmt in program.statements) {
@@ -24,7 +23,7 @@ class DefaultSemanticAnalyzer : SemanticAnalyzer {
         return AnalysisResult(
             program = program,
             globalScope = globalScope,
-            errors = errors.toList()
+            error = null
         )
     }
 
@@ -495,6 +494,11 @@ class DefaultSemanticAnalyzer : SemanticAnalyzer {
     }
 
     private fun report(message: String, position: Any?) {
-        errors += SemanticError(message, position)
+        val pos = when (position) {
+            is SourcePos -> position
+            null -> null
+            else -> null
+        }
+        throw SemanticException(pos, message)
     }
 }
