@@ -27,12 +27,12 @@ tasks.test {
 
 java {
     toolchain {
-        languageVersion.set(JavaLanguageVersion.of(21))
+        languageVersion.set(JavaLanguageVersion.of(23))
     }
 }
 
 kotlin {
-    jvmToolchain(21)
+    jvmToolchain(23)
 }
 
 application {
