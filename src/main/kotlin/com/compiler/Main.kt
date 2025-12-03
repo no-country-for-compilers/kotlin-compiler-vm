@@ -19,6 +19,9 @@ fun main(args: Array<String>) {
         args[0] == "--parse" && args.size >= 2 -> {
             ParserService.run(args[1])
         }
+        args[0] == "--semantic" && args.size >= 2 -> {
+            SemanticService.run(args[1])
+        }
         args[0] == "--help" -> {
             Help.printHelp()
         }
@@ -26,6 +29,7 @@ fun main(args: Array<String>) {
             println("Full compilation not yet implemented.")
             println("Use --lex <file> to tokenize a source file.")
             println("Use --parse <file> to tokenize + parse and print AST.")
+            println("Use --semantic <file> to perform semantic analysis.")
         }
     }
 }

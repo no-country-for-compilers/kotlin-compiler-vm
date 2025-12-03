@@ -3,6 +3,7 @@ package com.compiler
 import com.compiler.lexer.Token
 import com.compiler.parser.*
 import com.compiler.parser.ast.*
+import com.compiler.semantic.AnalysisResult
 
 object Printer {
 
@@ -168,6 +169,47 @@ object Printer {
             is PropertyAccessExpr -> {
                 println("${indent}${branch}Property(.${expr.property})")
                 printExpressionTree(expr.receiver, nextIndent, true)
+            }
+        }
+    }
+
+    fun printSemanticAnalysis(result: AnalysisResult) {
+        println("=== Semantic Analysis ===")
+        if (result.error == null) {
+            println("Semantic analysis completed successfully.")
+            println()
+            println("=== Symbol Table ===")
+            printSymbolTable(result.globalScope, "")
+        } else {
+            println("Semantic analysis found errors:")
+            println("  ${result.error.message}")
+        }
+    }
+
+    private fun printSymbolTable(scope: com.compiler.semantic.Scope, indent: String) {
+        val variables = scope.getAllVariables()
+        val functions = scope.getAllFunctions()
+
+        if (variables.isEmpty() && functions.isEmpty()) {
+            println("${indent}(empty)")
+            return
+        }
+
+        if (functions.isNotEmpty()) {
+            println("${indent}Functions:")
+            functions.values.forEach { fn ->
+                val params = fn.parameters.joinToString(", ") { "${it.name}: ${it.type}" }
+                println("${indent}  ${fn.name}($params): ${fn.returnType}")
+            }
+        }
+
+        if (variables.isNotEmpty()) {
+            if (functions.isNotEmpty()) {
+                println()
+            }
+            println("${indent}Variables:")
+            variables.values.forEach { varSymbol ->
+                println("${indent}  ${varSymbol.name}: ${varSymbol.type}")
             }
         }
     }
