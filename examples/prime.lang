@@ -1,7 +1,7 @@
 func sieve(limit: int): int[] {
-    let isPrime: bool[] = [];
+    let isPrime: bool[] = bool[limit + 1];
     for (let i: int = 0; i <= limit; i = i + 1) {
-        isPrime.append(true);
+        isPrime[i] = true;
     }
 
     isPrime[0] = false;
@@ -19,10 +19,20 @@ func sieve(limit: int): int[] {
         i = i + 1;
     }
 
-    let primes: int[] = [];
+    let count: int = 0;
     for (let k: int = 2; k <= limit; k = k + 1) {
         if (isPrime[k]) {
-            primes.append(k);
+            count = count + 1;
+        }
+    }
+
+    let primes: int[] = int[count];
+
+    let idx: int = 0;
+    for (let k: int = 2; k <= limit; k = k + 1) {
+        if (isPrime[k]) {
+            primes[idx] = k;
+            idx = idx + 1;
         }
     }
 
