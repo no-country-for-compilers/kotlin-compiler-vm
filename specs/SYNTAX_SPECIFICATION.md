@@ -217,7 +217,6 @@ identifier[expr] = expr;
 
 Запрещено:
 
-- `obj.field = ...`
 - `(arrExpr)[i] = ...`
 - цепочки вида `a = b = c`
 
@@ -265,7 +264,7 @@ return_statement ::= "return" [expression] ";"
 expression ::= assignment_expression
 
 assignment_expression ::= [ lvalue "=" ] logical_or_expression
-logical_or_expression ::= logical_and_expression {"||" logical_and_expression }
+logical_or_expression ::= logical_and_expression { "||" logical_and_expression }
 logical_and_expression ::= equality_expression { "&&" equality_expression }
 equality_expression ::= relational_expression { ("==" | "!=") relational_expression }
 relational_expression ::= additive_expression { ("<" | ">" | "<=" | ">=") additive_expression }

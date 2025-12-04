@@ -11,6 +11,7 @@
 **Recursive Descent Parser** - метод синтаксического анализа, при котором каждая грамматическая конструкция соответствует отдельной функции-методу парсера.
 
 **Преимущества:**
+
 - Простота реализации и понимания
 - Прямое соответствие грамматике языка
 - Легкость отладки и модификации
@@ -40,6 +41,7 @@ sealed class TypeNode : ASTNode()  // Типы
 ### Узлы операторов (Statements)
 
 #### Program
+
 Корневой узел программы.
 
 ```kotlin
@@ -47,6 +49,7 @@ data class Program(val statements: List<Statement>)
 ```
 
 #### VarDecl
+
 Объявление переменной: `let <identifier>: <type> = <expression>;`
 
 ```kotlin
@@ -59,6 +62,7 @@ data class VarDecl(
 ```
 
 #### FunctionDecl
+
 Объявление функции: `func <identifier>(<parameters>): <returnType> { <body> }`
 
 ```kotlin
@@ -78,6 +82,7 @@ data class Parameter(
 ```
 
 #### BlockStmt
+
 Блок операторов: `{ <statements> }`
 
 ```kotlin
@@ -85,6 +90,7 @@ data class BlockStmt(val statements: List<Statement>)
 ```
 
 #### IfStmt
+
 Условный оператор: `if (<condition>) { <thenBranch> } [ else { <elseBranch> } ]`
 
 ```kotlin
@@ -96,6 +102,7 @@ data class IfStmt(
 ```
 
 #### ForStmt
+
 Цикл for: `for (<initializer>?; <condition>?; <increment>?) { <body> }`
 
 ```kotlin
@@ -114,6 +121,7 @@ sealed class ForInitializer {
 ```
 
 #### ReturnStmt
+
 Оператор возврата: `return [expression];`
 
 ```kotlin
@@ -124,6 +132,7 @@ data class ReturnStmt(
 ```
 
 #### ExprStmt
+
 Оператор-выражение: `<expression>;`
 
 ```kotlin
@@ -133,6 +142,7 @@ data class ExprStmt(val expr: Expression)
 ### Узлы выражений (Expressions)
 
 #### LiteralExpr
+
 Литеральные значения: числа, булевы значения
 
 ```kotlin
@@ -143,6 +153,7 @@ data class LiteralExpr(
 ```
 
 #### VariableExpr
+
 Идентификатор переменной
 
 ```kotlin
@@ -153,6 +164,7 @@ data class VariableExpr(
 ```
 
 #### BinaryExpr
+
 Бинарное выражение: `<left> <operator> <right>`
 
 ```kotlin
@@ -165,6 +177,7 @@ data class BinaryExpr(
 ```
 
 #### UnaryExpr
+
 Унарное выражение: `<operator> <right>`
 
 ```kotlin
@@ -176,6 +189,7 @@ data class UnaryExpr(
 ```
 
 #### AssignExpr
+
 Присваивание: `<lvalue> = <value>`
 
 ```kotlin
@@ -189,17 +203,19 @@ sealed interface LValue  // VariableExpr или ArrayAccessExpr
 ```
 
 #### CallExpr
+
 Вызов функции: `<callee>(<args>)`
 
 ```kotlin
 data class CallExpr(
-    val callee: Expression,
+    val name: string,
     val args: List<Expression>,
     val pos: SourcePos
 )
 ```
 
 #### ArrayAccessExpr
+
 Доступ к элементу массива: `<array>[<index>]`
 
 ```kotlin
@@ -210,28 +226,8 @@ data class ArrayAccessExpr(
 )
 ```
 
-#### ArrayLiteralExpr
-Массивный литерал: `[<elements>]`
-
-```kotlin
-data class ArrayLiteralExpr(
-    val elements: List<Expression>,
-    val pos: SourcePos
-)
-```
-
-#### PropertyAccessExpr
-Доступ к свойству: `<receiver>.<property>`
-
-```kotlin
-data class PropertyAccessExpr(
-    val receiver: Expression,
-    val property: String,
-    val pos: SourcePos
-)
-```
-
 #### GroupingExpr
+
 Группировка: `(<expression>)`
 
 ```kotlin
@@ -272,10 +268,12 @@ sealed class TypeNode : ASTNode() {
 ### Ассоциативность
 
 Все бинарные операторы **левоассоциативны**:
+
 - `a + b + c` → `((a + b) + c)`
 - `a || b || c` → `((a || b) || c)`
 
 Унарные операторы **правоассоциативны**:
+
 - `!!x` → `!(!x)`
 - `- -x` → `-(-x)`
 
@@ -296,6 +294,7 @@ declaration ::= functionDecl | varDecl | statement
 ```
 
 Парсер определяет тип декларации по первому токену:
+
 - `func` → объявление функции
 - `let` → объявление переменной
 - Иначе → обычный оператор
@@ -305,6 +304,7 @@ declaration ::= functionDecl | varDecl | statement
 Выражения парсятся с учетом приоритета операторов, начиная с самого низкого уровня (assignment) и поднимаясь к первичным выражениям (primary).
 
 **Цепочка вызовов:**
+
 ```
 expression() → assignment() → logicOr() → logicAnd() → 
 equality() → comparison() → term() → factor() → 
@@ -343,6 +343,7 @@ class ParseException(
 ### Синхронизация после ошибок
 
 Парсер реализует базовую синхронизацию для восстановления после ошибок:
+
 - Пропуск токенов до следующего оператора (`;`)
 - Ожидание ключевых слов начала операторов (`func`, `let`, `if`, `for`, `return`)
 
@@ -355,12 +356,14 @@ class ParseException(
 ### Парсинг типов массивов
 
 Типы массивов парсятся рекурсивно:
+
 - `int[]` → `ArrayType(IntType)`
 - `int[][]` → `ArrayType(ArrayType(IntType))`
 
 ### Обработка пустых списков
 
 Парсер корректно обрабатывает:
+
 - Пустые списки параметров: `func foo(): void`
 - Пустые списки аргументов: `foo()`
 - Пустые массивы: `[]`
@@ -368,6 +371,7 @@ class ParseException(
 ### Обработка циклов for
 
 Парсер поддерживает все части цикла как опциональные:
+
 - `for (;;)` - все части пусты
 - `for (let i: int = 0; i < 10; i = i + 1)` - полный цикл
 - `for (; i < 10;)` - только условие
@@ -385,11 +389,13 @@ class Parser(private val tokens: List<Token>) {
 ### Пример 1: Простое объявление переменной
 
 **Вход:**
+
 ```
 let x: int = 42;
 ```
 
 **AST:**
+
 ```
 Program(
   statements = [
@@ -406,6 +412,7 @@ Program(
 ### Пример 2: Функция с условием
 
 **Вход:**
+
 ```
 func factorial(n: int): int {
     if (n <= 1) {
@@ -417,6 +424,7 @@ func factorial(n: int): int {
 ```
 
 **AST:**
+
 ```
 Program(
   statements = [
@@ -458,4 +466,3 @@ Program(
 3. **Строгие типы** - все типы должны быть явно указаны
 4. **Обязательные точки с запятой** - все выражения должны заканчиваться `;`
 5. **Обязательные скобки** - все блоки должны быть в `{}`
-
