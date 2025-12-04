@@ -276,7 +276,7 @@ postfix_expression ::= primary_expression {
                         | "[" expression "]"
                       }
 
-lvalue ::= identifier [ "[" expression "]" ]
+lvalue ::= identifier "[" expression "]"
 
 arg_list ::= [ expression { "," expression } ]
 
@@ -289,7 +289,7 @@ primary_expression ::= int_literal
 
 array_initialization ::= base_type "[" expression "]"
 
-type ::= base_type { "[]" }
+type ::= base_type [ "[]" ]
 base_type ::= "int" | "float" | "bool" | "void"
 
 parameters ::= [ parameter { "," parameter } ]

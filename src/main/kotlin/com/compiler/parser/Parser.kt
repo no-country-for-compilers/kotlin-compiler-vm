@@ -513,14 +513,8 @@ class Parser(private val tokens: List<Token>) {
                 throw ParseException(baseTok.pos, "Unexpected type token here")
             }
 
-            val sizes = mutableListOf<Expression>()
-            sizes.add(expression())
+            val sizeExpr = expression()
             consume(TokenType.RBRACKET, "Expected ']' after array size")
-
-            while (match(TokenType.LBRACKET)) {
-                sizes.add(expression())
-                consume(TokenType.RBRACKET, "Expected ']' after array size")
-            }
 
             val elementType =
                     when (baseTok.type) {
@@ -529,9 +523,9 @@ class Parser(private val tokens: List<Token>) {
                         TokenType.TYPE_BOOL -> TypeNode.BoolType
                         else -> throw ParseException(baseTok.pos, "Invalid base type for array init")
                     }
-            return ArrayInitExpr(elementType, sizes, baseTok.pos)
-        }
 
+            return ArrayInitExpr(elementType, sizeExpr, baseTok.pos)
+        }
 
         if (match(TokenType.IDENTIFIER)) {
             val tok = previous()

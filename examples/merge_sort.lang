@@ -1,53 +1,57 @@
-func mergeSort(arr: int[], len: int): int[] {
-    if (len <= 1) {
+func mergeSort(arr: int[], size: int): int[] {
+    if (size <= 1) {
         return arr;
     }
-
-    let mid: int = len / 2;
-    let left: int[] = int[mid];
-    let right: int[] = int[len - mid];
-
-    for (let i: int = 0; i < mid; i = i + 1) {
+    
+    let mid: int = size / 2;
+    let leftSize: int = mid;
+    let rightSize: int = size - mid;
+    let left: int[] = int[leftSize];
+    let right: int[] = int[rightSize];
+    
+    for (let i: int = 0; i < leftSize; i = i + 1) {
         left[i] = arr[i];
     }
-
-    for (let i: int = 0; i < len - mid; i = i + 1) {
+    
+    for (let i: int = 0; i < rightSize; i = i + 1) {
         right[i] = arr[mid + i];
     }
-
-    return merge(mergeSort(left, mid), mid, mergeSort(right, len - mid), len - mid);
+    
+    let sortedLeft: int[] = mergeSort(left, leftSize);
+    let sortedRight: int[] = mergeSort(right, rightSize);
+    return merge(sortedLeft, leftSize, sortedRight, rightSize);
 }
 
-func merge(left: int[], left_len: int, right: int[], right_len: int): int[] {
-    let n: int = left_len + right_len;
-    let result: int[] = int[n];
-
+func merge(left: int[], leftSize: int, right: int[], rightSize: int): int[] {
+    let resultSize: int = leftSize + rightSize;
+    let result: int[] = int[resultSize];
     let i: int = 0;
     let j: int = 0;
     let k: int = 0;
-
-    for (; i < left_len && j < right_len;) {
+    
+    for (; i < leftSize && j < rightSize;) {
         if (left[i] <= right[j]) {
             result[k] = left[i];
             i = i + 1;
+            k = k + 1;
         } else {
             result[k] = right[j];
             j = j + 1;
+            k = k + 1;
         }
-        k = k + 1;
     }
-
-    for (; i < left_len;) {
+    
+    for (; i < leftSize;) {
         result[k] = left[i];
         i = i + 1;
         k = k + 1;
     }
-
-    for (; j < right_len;) {
+    
+    for (; j < rightSize;) {
         result[k] = right[j];
         j = j + 1;
         k = k + 1;
     }
-
+    
     return result;
 }

@@ -97,9 +97,18 @@ data class CallExpr(val name: String, val args: List<Expression>, val pos: Sourc
 data class ArrayAccessExpr(val array: Expression, val index: Expression, val pos: SourcePos) :
         Expression(), LValue
 
-
+/**
+ * Инициализация одномерного массива с фиксированным размером: `<type>[<size>]`.
+ *
+ * Пример: `int[10]` создаёт массив из 10 элементов типа int.
+ *
+ * @property elementType тип элементов массива
+ * @property size выражение, вычисляющее размер массива (должно быть целым литералом)
+ * @property pos позиция открывающей скобки `[` или позиции объявления массива (используется для
+ * сообщений об ошибках)
+ */
 data class ArrayInitExpr(
         val elementType: TypeNode,
-        val sizes: List<Expression>,
+        val size: Expression,
         val pos: SourcePos
 ) : Expression()

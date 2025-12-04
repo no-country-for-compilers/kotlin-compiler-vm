@@ -161,11 +161,8 @@ object Printer {
             is ArrayInitExpr -> {
                 println("${indent}${branch}ArrayInit(${expr.elementType})")
 
-                println("$nextIndent└─ Sizes:")
-                val last = expr.sizes.lastIndex
-                expr.sizes.forEachIndexed { i, sizeExpr ->
-                    printExpressionTree(sizeExpr, nextIndent + "   ", i == last)
-                }
+                println("$nextIndent└─ Size:")
+                printExpressionTree(expr.size, nextIndent + "   ", true)
             }
         }
     }
