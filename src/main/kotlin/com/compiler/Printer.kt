@@ -139,24 +139,16 @@ object Printer {
                 printExpressionTree(expr.value, nextIndent + "   ", true)
             }
             is CallExpr -> {
-                println("${indent}${branch}Call")
-                println("$nextIndent├─ Callee:")
-                printExpressionTree(expr.callee, nextIndent + "│  ", false)
+                println("${indent}${branch}Call(${expr.name})")
+
                 if (expr.args.isNotEmpty()) {
-                    println("$nextIndent└─ Args:")
+                    println("${nextIndent}└─ Args:")
                     val last = expr.args.lastIndex
                     expr.args.forEachIndexed { i, a ->
                         printExpressionTree(a, nextIndent + "   ", i == last)
                     }
                 } else {
-                    println("$nextIndent└─ Args: (none)")
-                }
-            }
-            is ArrayLiteralExpr -> {
-                println("${indent}${branch}ArrayLiteral")
-                val last = expr.elements.lastIndex
-                expr.elements.forEachIndexed { i, e ->
-                    printExpressionTree(e, nextIndent, i == last)
+                    println("${nextIndent}└─ Args: (none)")
                 }
             }
             is ArrayAccessExpr -> {
@@ -166,9 +158,14 @@ object Printer {
                 println("$nextIndent└─ Index:")
                 printExpressionTree(expr.index, nextIndent + "   ", true)
             }
-            is PropertyAccessExpr -> {
-                println("${indent}${branch}Property(.${expr.property})")
-                printExpressionTree(expr.receiver, nextIndent, true)
+            is ArrayInitExpr -> {
+                println("${indent}${branch}ArrayInit(${expr.elementType})")
+
+                println("$nextIndent└─ Sizes:")
+                val last = expr.sizes.lastIndex
+                expr.sizes.forEachIndexed { i, sizeExpr ->
+                    printExpressionTree(sizeExpr, nextIndent + "   ", i == last)
+                }
             }
         }
     }

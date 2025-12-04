@@ -92,7 +92,32 @@ class Parser(private val tokens: List<Token>) {
         consume(TokenType.ASSIGN, "Expected '=' and initializer in variable declaration")
         val initializer = expression()
         consume(TokenType.SEMICOLON, "Expected ';' after variable declaration")
+
+        if (initializer is ArrayInitExpr) {
+            if (typeNode !is TypeNode.ArrayType) {
+                throw ParseException(
+                        nameToken.pos,
+                        "Initializer is array, but declared type is not array"
+                )
+            }
+            val declaredBase = unwrapArrayElementType(typeNode)
+            if (declaredBase::class != initializer.elementType::class) {
+                throw ParseException(
+                        nameToken.pos,
+                        "Array initializer base type '${initializer.elementType}' does not match declared element type '$declaredBase'"
+                )
+            }
+        }
+
         return VarDecl(nameToken.lexeme, typeNode, initializer, nameToken.pos)
+    }
+
+    private fun unwrapArrayElementType(t: TypeNode): TypeNode {
+        var cur = t
+        while (cur is TypeNode.ArrayType) {
+            cur = cur.elementType
+        }
+        return cur
     }
 
     /**
@@ -423,10 +448,6 @@ class Parser(private val tokens: List<Token>) {
                 match(TokenType.LPAREN) -> {
                     expr = finishCall(expr)
                 }
-                match(TokenType.DOT) -> {
-                    val nameTok = consume(TokenType.IDENTIFIER, "Expected property name after '.'")
-                    expr = PropertyAccessExpr(expr, nameTok.lexeme, nameTok.pos)
-                }
                 match(TokenType.LBRACKET) -> {
                     val indexExpr = expression()
                     val rb = consume(TokenType.RBRACKET, "Expected ']' after index")
@@ -441,16 +462,26 @@ class Parser(private val tokens: List<Token>) {
     /** 
      * Завершает разбор вызова функции, собирая список аргументов. 
      */
-    private fun finishCall(callee: Expression): Expression {
+    private fun finishCall(calleeExpr: Expression): Expression {
+        val (name, namePos) =
+                when (calleeExpr) {
+                    is VariableExpr -> calleeExpr.name to calleeExpr.pos
+                    else ->
+                        throw ParseException(
+                            previous().pos,
+                            "Can only call functions by identifier"
+                        )
+                }
+
         val args = mutableListOf<Expression>()
-        val startPos = previous().pos
+        val startPos = namePos
         if (!check(TokenType.RPAREN)) {
             do {
                 args.add(expression())
             } while (match(TokenType.COMMA))
         }
         consume(TokenType.RPAREN, "Expected ')' after arguments")
-        return CallExpr(callee, args, startPos)
+        return CallExpr(name, args, startPos)
     }
 
     /**
@@ -476,17 +507,31 @@ class Parser(private val tokens: List<Token>) {
             return LiteralExpr(lit, previous().pos)
         }
 
-        if (match(TokenType.LBRACKET)) {
-            val startPos = previous().pos
-            val elements = mutableListOf<Expression>()
-            if (!check(TokenType.RBRACKET)) {
-                do {
-                    elements.add(expression())
-                } while (match(TokenType.COMMA))
+        if (match(TokenType.TYPE_INT, TokenType.TYPE_FLOAT, TokenType.TYPE_BOOL)) {
+            val baseTok = previous()
+            if (!match(TokenType.LBRACKET)) {
+                throw ParseException(baseTok.pos, "Unexpected type token here")
             }
-            consume(TokenType.RBRACKET, "Expected ']' after array literal")
-            return ArrayLiteralExpr(elements, startPos)
+
+            val sizes = mutableListOf<Expression>()
+            sizes.add(expression())
+            consume(TokenType.RBRACKET, "Expected ']' after array size")
+
+            while (match(TokenType.LBRACKET)) {
+                sizes.add(expression())
+                consume(TokenType.RBRACKET, "Expected ']' after array size")
+            }
+
+            val elementType =
+                    when (baseTok.type) {
+                        TokenType.TYPE_INT -> TypeNode.IntType
+                        TokenType.TYPE_FLOAT -> TypeNode.FloatType
+                        TokenType.TYPE_BOOL -> TypeNode.BoolType
+                        else -> throw ParseException(baseTok.pos, "Invalid base type for array init")
+                    }
+            return ArrayInitExpr(elementType, sizes, baseTok.pos)
         }
+
 
         if (match(TokenType.IDENTIFIER)) {
             val tok = previous()

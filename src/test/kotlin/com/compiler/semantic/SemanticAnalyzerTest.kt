@@ -125,21 +125,4 @@ class SemanticAnalyzerTest {
             "Expected error about returning value from void function, got: ${exception.message}"
         )
     }
-
-    @Test
-    fun `array literal with mixed element types produces error`() {
-        val source = """
-            func main(): void {
-                let arr: int[] = [1, 2.0, 3];
-            }
-        """.trimIndent()
-
-        val exception = assertThrows<SemanticException> {
-            analyze(source)
-        }
-        assertTrue(
-            exception.message?.contains("Array literal elements must have the same type") == true,
-            "Expected array literal element type error, got: ${exception.message}"
-        )
-    }
 }

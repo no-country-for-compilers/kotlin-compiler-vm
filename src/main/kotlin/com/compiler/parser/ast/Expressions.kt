@@ -62,14 +62,6 @@ data class UnaryExpr(val operator: TokenType, val right: Expression, val pos: So
 data class LiteralExpr(val value: Any?, val pos: SourcePos) : Expression()
 
 /**
- * Массивный литерал: `[expr1, expr2, ...]`
- *
- * @property elements список выражений-элементов массива (может быть пустым)
- * @property pos позиция начала литерала (`[`)
- */
-data class ArrayLiteralExpr(val elements: List<Expression>, val pos: SourcePos) : Expression()
-
-/**
  * Группирующее/скобочное выражение: `(expr)`.
  *
  * @property expression вложенное выражение
@@ -88,11 +80,11 @@ data class VariableExpr(val name: String, val pos: SourcePos) : Expression(), LV
 /**
  * Вызов функции или метода: `<callee>(arg1, arg2, ...)`.
  *
- * @property callee выражение, которое вызывается (переменная, свойство и т.д.)
+ * @property name имя функции
  * @property args аргументы вызова в порядке перечисления
  * @property pos позиция открывающей круглой скобки вызова или позиции самого вызова
  */
-data class CallExpr(val callee: Expression, val args: List<Expression>, val pos: SourcePos) :
+data class CallExpr(val name: String, val args: List<Expression>, val pos: SourcePos) :
         Expression()
 
 /**
@@ -105,15 +97,9 @@ data class CallExpr(val callee: Expression, val args: List<Expression>, val pos:
 data class ArrayAccessExpr(val array: Expression, val index: Expression, val pos: SourcePos) :
         Expression(), LValue
 
-/**
- * Доступ к свойству/методу через точку: `<receiver>.<property>`
- *
- * Для вызова метода в AST должно использоваться сочетание PropertyAccessExpr в качестве callee
- * внутри CallExpr (т.е. `CallExpr(PropertyAccessExpr(...), args)`).
- *
- * @property receiver выражение-ресивер (объект)
- * @property property имя свойства/метода
- * @property pos позиция токена свойства (точки или начала имени свойства)
- */
-data class PropertyAccessExpr(val receiver: Expression, val property: String, val pos: SourcePos) :
-        Expression()
+
+data class ArrayInitExpr(
+        val elementType: TypeNode,
+        val sizes: List<Expression>,
+        val pos: SourcePos
+) : Expression()

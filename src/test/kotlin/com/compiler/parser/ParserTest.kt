@@ -192,12 +192,12 @@ class ParserTest {
                 assertNotNull(f.increment)
         }
 
-        // --- Array literal and indexing test ---
+        // --- Array allocation and indexing test ---
         @Test
-        fun `parse array literal and access`() {
+        fun `parse array allocation and access`() {
                 val tokens =
                         listOf(
-                                // let arr: int[] = [1, 2, 3];
+                                // let arr: int[] = int[3];
                                 token(TokenType.LET),
                                 ident("arr"),
                                 token(TokenType.COLON),
@@ -205,11 +205,8 @@ class ParserTest {
                                 token(TokenType.LBRACKET),
                                 token(TokenType.RBRACKET), // int[]
                                 token(TokenType.ASSIGN),
+                                token(TokenType.TYPE_INT),
                                 token(TokenType.LBRACKET),
-                                intLit(1L),
-                                token(TokenType.COMMA),
-                                intLit(2L),
-                                token(TokenType.COMMA),
                                 intLit(3L),
                                 token(TokenType.RBRACKET),
                                 token(TokenType.SEMICOLON),
@@ -232,11 +229,22 @@ class ParserTest {
                 val program = p.parse()
 
                 assertEquals(2, program.statements.size)
+
                 val arrDecl = program.statements[0] as VarDecl
-                assertTrue(arrDecl.expression is ArrayLiteralExpr)
+                assertTrue(arrDecl.expression is ArrayInitExpr)
+                val arrInit = arrDecl.expression as ArrayInitExpr
+                // элементный тип — int
+                assertEquals(TypeNode.IntType, arrInit.elementType)
+                // один размер — литерал 3
+                assertEquals(1, arrInit.sizes.size)
+                val sizeExpr = arrInit.sizes[0]
+                assertTrue(sizeExpr is LiteralExpr)
+                assertEquals(3L, (sizeExpr as LiteralExpr).value)
+
                 val firstDecl = program.statements[1] as VarDecl
                 assertTrue(firstDecl.expression is ArrayAccessExpr)
         }
+
 
         // --- Function call + assignment chain ---
         @Test
@@ -452,34 +460,31 @@ class ParserTest {
                 assertTrue(forStmt.body.statements[0] is IfStmt)
         }
 
-        // --- Array of arrays and indexing ---
+        // --- Nested array allocation and indexing ---
         @Test
-        fun `parse nested array literals and access`() {
+        fun `parse nested array allocations and access`() {
                 val tokens =
                         listOf(
+                                // let matrix: int[][] = int[2][2];
                                 token(TokenType.LET),
                                 ident("matrix"),
                                 token(TokenType.COLON),
                                 token(TokenType.TYPE_INT),
                                 token(TokenType.LBRACKET),
-                                token(TokenType.RBRACKET),
+                                token(TokenType.RBRACKET), // int[]
                                 token(TokenType.LBRACKET),
-                                token(TokenType.RBRACKET),
+                                token(TokenType.RBRACKET), // int[][]
                                 token(TokenType.ASSIGN),
+                                token(TokenType.TYPE_INT),
                                 token(TokenType.LBRACKET),
-                                token(TokenType.LBRACKET),
-                                intLit(1),
-                                token(TokenType.COMMA),
-                                intLit(2),
+                                intLit(2L),
                                 token(TokenType.RBRACKET),
-                                token(TokenType.COMMA),
                                 token(TokenType.LBRACKET),
-                                intLit(3),
-                                token(TokenType.COMMA),
-                                intLit(4),
-                                token(TokenType.RBRACKET),
+                                intLit(2L),
                                 token(TokenType.RBRACKET),
                                 token(TokenType.SEMICOLON),
+
+                                // let val: int = matrix[1][0];
                                 token(TokenType.LET),
                                 ident("val"),
                                 token(TokenType.COLON),
@@ -487,19 +492,34 @@ class ParserTest {
                                 token(TokenType.ASSIGN),
                                 ident("matrix"),
                                 token(TokenType.LBRACKET),
-                                intLit(1),
+                                intLit(1L),
                                 token(TokenType.RBRACKET),
                                 token(TokenType.LBRACKET),
-                                intLit(0),
+                                intLit(0L),
                                 token(TokenType.RBRACKET),
                                 token(TokenType.SEMICOLON),
                                 eof()
                         )
+
                 val program = Parser(tokens).parse()
+                assertEquals(2, program.statements.size)
+
                 val matrixDecl = program.statements[0] as VarDecl
-                assertTrue(matrixDecl.expression is ArrayLiteralExpr)
+                assertTrue(matrixDecl.expression is ArrayInitExpr)
+                val arrInit = matrixDecl.expression as ArrayInitExpr
+                assertEquals(TypeNode.IntType, arrInit.elementType)
+                assertEquals(2, arrInit.sizes.size)
+                assertTrue(arrInit.sizes[0] is LiteralExpr)
+                assertEquals(2L, (arrInit.sizes[0] as LiteralExpr).value)
+                assertTrue(arrInit.sizes[1] is LiteralExpr)
+                assertEquals(2L, (arrInit.sizes[1] as LiteralExpr).value)
+
                 val valDecl = program.statements[1] as VarDecl
                 assertTrue(valDecl.expression is ArrayAccessExpr)
+                // Можно дополнительно проверить цепочку доступа: matrix[1][0]
+                var access = valDecl.expression as ArrayAccessExpr
+                assertTrue(access.array is ArrayAccessExpr)
+                assertTrue((access.array as ArrayAccessExpr).array is VariableExpr)
         }
 
         // --- Grouping expressions ---

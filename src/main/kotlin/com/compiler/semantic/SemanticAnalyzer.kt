@@ -209,10 +209,9 @@ class DefaultSemanticAnalyzer : SemanticAnalyzer {
             is UnaryExpr -> analyzeUnaryExpr(expr, scope)
             is BinaryExpr -> analyzeBinaryExpr(expr, scope)
             is CallExpr -> analyzeCallExpr(expr, scope)
-            is ArrayLiteralExpr -> analyzeArrayLiteral(expr, scope)
             is ArrayAccessExpr -> analyzeArrayAccess(expr, scope)
-            is PropertyAccessExpr -> analyzePropertyAccess(expr, scope)
             is AssignExpr -> analyzeAssignExpr(expr, scope)
+            is ArrayInitExpr -> analyzeArrayInitExpr(expr, scope)
         }
     }
 
@@ -354,29 +353,15 @@ class DefaultSemanticAnalyzer : SemanticAnalyzer {
     }
 
     private fun analyzeCallExpr(expr: CallExpr, scope: Scope): Type {
-        val calleeVar = (expr.callee as? VariableExpr)
-        if (calleeVar == null) {
-            report(
-                "Only function identifiers can be called (got '${expr.callee::class.simpleName}')",
-                expr.pos
-            )
-            expr.args.forEach { analyzeExpression(it, scope) }
-            return Type.Unknown
-        }
+        val name = expr.name
 
-        val fn = scope.resolveFunction(calleeVar.name)
+        val fn = scope.resolveFunction(name)
         if (fn == null) {
-            val varSymbol = scope.resolveVariable(calleeVar.name)
+            val varSymbol = scope.resolveVariable(name)
             if (varSymbol != null) {
-                report(
-                    "Cannot call non-function '${calleeVar.name}' of type '${varSymbol.type}'",
-                    expr.pos
-                )
+                report("Cannot call non-function '$name' of type '${varSymbol.type}'", expr.pos)
             } else {
-                report(
-                    "Undefined function '${calleeVar.name}'",
-                    expr.pos
-                )
+                report("Undefined function '$name'", expr.pos)
             }
             expr.args.forEach { analyzeExpression(it, scope) }
             return Type.Unknown
@@ -384,8 +369,8 @@ class DefaultSemanticAnalyzer : SemanticAnalyzer {
 
         if (expr.args.size != fn.parameters.size) {
             report(
-                "Function '${fn.name}' expects ${fn.parameters.size} arguments but got ${expr.args.size}",
-                expr.pos
+                    "Function '${fn.name}' expects ${fn.parameters.size} arguments but got ${expr.args.size}",
+                    expr.pos
             )
         }
 
@@ -399,34 +384,13 @@ class DefaultSemanticAnalyzer : SemanticAnalyzer {
             val paramType = paramTypes[i]
             if (!isAssignable(argType, paramType)) {
                 report(
-                    "Type mismatch for argument ${i + 1} of function '${fn.name}': expected '$paramType', got '$argType'",
-                    expr.pos
+                        "Type mismatch for argument ${i + 1} of function '${fn.name}': expected '$paramType', got '$argType'",
+                        expr.pos
                 )
             }
         }
 
         return fn.returnType
-    }
-
-    private fun analyzeArrayLiteral(expr: ArrayLiteralExpr, scope: Scope): Type {
-        if (expr.elements.isEmpty()) {
-            return Type.Array(Type.Unknown)
-        }
-
-        val elementTypes = expr.elements.map { analyzeExpression(it, scope) }
-        val baseType = elementTypes.firstOrNull { it != Type.Unknown } ?: Type.Unknown
-
-        for (t in elementTypes) {
-            if (t != Type.Unknown && t != baseType) {
-                report(
-                    "Array literal elements must have the same type, but found '$baseType' and '$t'",
-                    expr.pos
-                )
-                return Type.Array(Type.Unknown)
-            }
-        }
-
-        return Type.Array(baseType)
     }
 
     private fun analyzeArrayAccess(expr: ArrayAccessExpr, scope: Scope): Type {
@@ -453,16 +417,6 @@ class DefaultSemanticAnalyzer : SemanticAnalyzer {
         }
     }
 
-    private fun analyzePropertyAccess(expr: PropertyAccessExpr, scope: Scope): Type {
-        // Пока в языке нет объектной модели/структур, просто фиксируем ошибку
-        analyzeExpression(expr.receiver, scope)
-        report(
-            "Property access is not supported yet (found '.${expr.property}')",
-            expr.pos
-        )
-        return Type.Unknown
-    }
-
     private fun analyzeAssignExpr(expr: AssignExpr, scope: Scope): Type {
         val targetType = when (val target = expr.target) {
             is VariableExpr -> analyzeVariableExpr(target, scope)
@@ -479,6 +433,11 @@ class DefaultSemanticAnalyzer : SemanticAnalyzer {
         }
 
         return targetType
+    }
+
+    private fun analyzeArrayInitExpr(expr: ArrayInitExpr, scope: Scope): Type {
+        // TODO: implement array initialization analysis
+        return Type.Unknown
     }
 
 
