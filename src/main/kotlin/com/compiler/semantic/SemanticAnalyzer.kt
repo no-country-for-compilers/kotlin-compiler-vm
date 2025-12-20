@@ -19,6 +19,27 @@ class DefaultSemanticAnalyzer : SemanticAnalyzer {
         // Инициализация встроенных функций
         initializeBuiltins(globalScope)
 
+        // First pass: declare all functions (forward declarations)
+        for (stmt in program.statements) {
+            if (stmt is FunctionDecl) {
+                val paramSymbols = mutableListOf<VariableSymbol>()
+                for (p in stmt.parameters) {
+                    val pType = p.type.toSemanticType()
+                    paramSymbols += VariableSymbol(p.identifier, pType)
+                }
+                val returnType = stmt.returnType.toSemanticType()
+                val fnSymbol = FunctionSymbol(stmt.identifier, paramSymbols, returnType)
+
+                if (!globalScope.defineFunction(fnSymbol)) {
+                    report(
+                        "Function '${stmt.identifier}' is already defined in this scope",
+                        stmt.pos
+                    )
+                }
+            }
+        }
+
+        // Second pass: analyze function bodies and other statements
         for (stmt in program.statements) {
             analyzeStatement(stmt, globalScope)
         }
@@ -66,20 +87,9 @@ class DefaultSemanticAnalyzer : SemanticAnalyzer {
     }
 
     private fun analyzeFunctionDecl(fn: FunctionDecl, scope: Scope) {
-        val paramSymbols = mutableListOf<VariableSymbol>()
-        for (p in fn.parameters) {
-            val pType = p.type.toSemanticType()
-            paramSymbols += VariableSymbol(p.identifier, pType)
-        }
-        val returnType = fn.returnType.toSemanticType()
-        val fnSymbol = FunctionSymbol(fn.identifier, paramSymbols, returnType)
-
-        if (!scope.defineFunction(fnSymbol)) {
-            report(
-                "Function '${fn.identifier}' is already defined in this scope",
-                fn.pos
-            )
-        }
+        // Function is already declared in first pass, just get the symbol
+        val fnSymbol = scope.resolveFunction(fn.identifier)
+            ?: throw IllegalStateException("Function ${fn.identifier} should have been declared in first pass")
 
         val seenNames = mutableSetOf<String>()
         for (param in fn.parameters) {
@@ -95,8 +105,13 @@ class DefaultSemanticAnalyzer : SemanticAnalyzer {
         currentFunction = fnSymbol
 
         val functionScope = Scope(scope)
-
-        for (paramSymbol in paramSymbols) {
+        
+        // Define parameters in function scope
+        val paramSymbols = mutableListOf<VariableSymbol>()
+        for (p in fn.parameters) {
+            val pType = p.type.toSemanticType()
+            val paramSymbol = VariableSymbol(p.identifier, pType)
+            paramSymbols += paramSymbol
             if (!functionScope.defineVariable(paramSymbol)) {
                 report(
                     "Parameter '${paramSymbol.name}' is already defined in function '${fn.identifier}'",
