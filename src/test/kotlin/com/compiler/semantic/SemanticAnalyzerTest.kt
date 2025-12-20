@@ -125,4 +125,75 @@ class SemanticAnalyzerTest {
             "Expected error about returning value from void function, got: ${exception.message}"
         )
     }
+
+    // ========== Tests for built-in print function ==========
+
+    @Test
+    fun `print with all supported types is valid`() {
+        val source = """
+            func main(): void {
+                print(42);
+                print(3.14);
+                print(true);
+                let intArr: int[] = int[5];
+                let floatArr: float[] = float[3];
+                let boolArr: bool[] = bool[2];
+                print(intArr);
+                print(floatArr);
+                print(boolArr);
+            }
+        """.trimIndent()
+
+        val result = analyze(source)
+        assertNull(result.error, "Expected no semantic errors for print with all supported types")
+    }
+
+    @Test
+    fun `print without arguments produces error`() {
+        val source = """
+            func main(): void {
+                print();
+            }
+        """.trimIndent()
+
+        val exception = assertThrows<SemanticException> {
+            analyze(source)
+        }
+        assertTrue(
+            exception.message?.contains("expects 1 arguments but got 0") == true,
+            "Expected error about missing arguments, got: ${exception.message}"
+        )
+    }
+
+    @Test
+    fun `print with too many arguments produces error`() {
+        val source = """
+            func main(): void {
+                print(42, 3.14);
+            }
+        """.trimIndent()
+
+        val exception = assertThrows<SemanticException> {
+            analyze(source)
+        }
+        assertTrue(
+            exception.message?.contains("expects 1 arguments but got 2") == true,
+            "Expected error about too many arguments, got: ${exception.message}"
+        )
+    }
+
+    @Test
+    fun `print is available in global scope`() {
+        val source = """
+            func main(): void {
+                print(42);
+            }
+        """.trimIndent()
+
+        val result = analyze(source)
+        assertNull(result.error, "Expected print to be available in global scope")
+        
+        val printFunction = result.globalScope.resolveFunction("print")
+        assertNotNull(printFunction, "Expected print function to be in global scope")
+    }
 }

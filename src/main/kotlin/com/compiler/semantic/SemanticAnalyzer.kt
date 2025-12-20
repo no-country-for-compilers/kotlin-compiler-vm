@@ -16,6 +16,9 @@ class DefaultSemanticAnalyzer : SemanticAnalyzer {
     override fun analyze(program: Program): AnalysisResult {
         globalScope = Scope(parent = null)
 
+        // Инициализация встроенных функций
+        initializeBuiltins(globalScope)
+
         for (stmt in program.statements) {
             analyzeStatement(stmt, globalScope)
         }
@@ -25,6 +28,57 @@ class DefaultSemanticAnalyzer : SemanticAnalyzer {
             globalScope = globalScope,
             error = null
         )
+    }
+
+    /**
+     * Инициализирует встроенные функции языка в глобальной области видимости.
+     * 
+     * Встроенные функции:
+     * - print(value: int): void - печать целого числа
+     * - print(value: float): void - печать числа с плавающей точкой
+     * - print(value: bool): void - печать булева значения
+     * - print(value: int[]): void - печать массива целых чисел
+     * - print(value: float[]): void - печать массива чисел с плавающей точкой
+     * - print(value: bool[]): void - печать массива булевых значений
+     */
+    private fun initializeBuiltins(scope: Scope) {
+        // print для простых типов
+        scope.defineFunction(FunctionSymbol(
+            name = "print",
+            parameters = listOf(VariableSymbol("value", Type.Int)),
+            returnType = Type.Void
+        ))
+
+        scope.defineFunction(FunctionSymbol(
+            name = "print",
+            parameters = listOf(VariableSymbol("value", Type.Float)),
+            returnType = Type.Void
+        ))
+
+        scope.defineFunction(FunctionSymbol(
+            name = "print",
+            parameters = listOf(VariableSymbol("value", Type.Bool)),
+            returnType = Type.Void
+        ))
+
+        // print для массивов
+        scope.defineFunction(FunctionSymbol(
+            name = "print",
+            parameters = listOf(VariableSymbol("value", Type.Array(Type.Int))),
+            returnType = Type.Void
+        ))
+
+        scope.defineFunction(FunctionSymbol(
+            name = "print",
+            parameters = listOf(VariableSymbol("value", Type.Array(Type.Float))),
+            returnType = Type.Void
+        ))
+
+        scope.defineFunction(FunctionSymbol(
+            name = "print",
+            parameters = listOf(VariableSymbol("value", Type.Array(Type.Bool))),
+            returnType = Type.Void
+        ))
     }
 
     private fun analyzeStatement(stmt: Statement, scope: Scope) {
@@ -355,39 +409,53 @@ class DefaultSemanticAnalyzer : SemanticAnalyzer {
     private fun analyzeCallExpr(expr: CallExpr, scope: Scope): Type {
         val name = expr.name
 
-        val fn = scope.resolveFunction(name)
+        // Сначала анализируем аргументы, чтобы получить их типы
+        val argTypes = expr.args.map { analyzeExpression(it, scope) }
+
+        // Пытаемся найти функцию с подходящими типами аргументов (для поддержки перегрузки)
+        val fn = scope.resolveFunction(name, argTypes)
+        
         if (fn == null) {
-            val varSymbol = scope.resolveVariable(name)
-            if (varSymbol != null) {
-                report("Cannot call non-function '$name' of type '${varSymbol.type}'", expr.pos)
+            // Если не нашли по типам, пробуем найти любую функцию с таким именем
+            val anyFn = scope.resolveFunction(name)
+            if (anyFn == null) {
+                val varSymbol = scope.resolveVariable(name)
+                if (varSymbol != null) {
+                    report("Cannot call non-function '$name' of type '${varSymbol.type}'", expr.pos)
+                } else {
+                    report("Undefined function '$name'", expr.pos)
+                }
+                return Type.Unknown
             } else {
-                report("Undefined function '$name'", expr.pos)
+                // Нашли функцию, но типы не совпадают
+                if (expr.args.size != anyFn.parameters.size) {
+                    report(
+                        "Function '${anyFn.name}' expects ${anyFn.parameters.size} arguments but got ${expr.args.size}",
+                        expr.pos
+                    )
+                } else {
+                    // Количество аргументов совпадает, но типы нет
+                    for (i in argTypes.indices) {
+                        val argType = argTypes[i]
+                        val paramType = anyFn.parameters[i].type
+                        if (!isAssignable(argType, paramType)) {
+                            report(
+                                "Type mismatch for argument ${i + 1} of function '${anyFn.name}': expected '$paramType', got '$argType'",
+                                expr.pos
+                            )
+                        }
+                    }
+                }
+                return anyFn.returnType
             }
-            expr.args.forEach { analyzeExpression(it, scope) }
-            return Type.Unknown
         }
 
+        // Проверяем количество аргументов (должно совпадать, так как resolveFunction уже проверил типы)
         if (expr.args.size != fn.parameters.size) {
             report(
-                    "Function '${fn.name}' expects ${fn.parameters.size} arguments but got ${expr.args.size}",
-                    expr.pos
+                "Function '${fn.name}' expects ${fn.parameters.size} arguments but got ${expr.args.size}",
+                expr.pos
             )
-        }
-
-        // Типы аргументов
-        val argTypes = expr.args.map { analyzeExpression(it, scope) }
-        val paramTypes = fn.parameters.map { it.type }
-
-        val count = minOf(argTypes.size, paramTypes.size)
-        for (i in 0 until count) {
-            val argType = argTypes[i]
-            val paramType = paramTypes[i]
-            if (!isAssignable(argType, paramType)) {
-                report(
-                        "Type mismatch for argument ${i + 1} of function '${fn.name}': expected '$paramType', got '$argType'",
-                        expr.pos
-                )
-            }
         }
 
         return fn.returnType
