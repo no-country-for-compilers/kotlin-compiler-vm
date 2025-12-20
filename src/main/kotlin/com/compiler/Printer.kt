@@ -191,11 +191,9 @@ object Printer {
 
         if (functions.isNotEmpty()) {
             println("${indent}Functions:")
-            functions.forEach { (name, overloads) ->
-                overloads.forEach { fn ->
-                    val params = fn.parameters.joinToString(", ") { "${it.name}: ${it.type}" }
-                    println("${indent}  ${fn.name}($params): ${fn.returnType}")
-                }
+            functions.forEach { (name, fn) ->
+                val params = fn.parameters.joinToString(", ") { "${it.name}: ${it.type}" }
+                println("${indent}  ${fn.name}($params): ${fn.returnType}")
             }
         }
 

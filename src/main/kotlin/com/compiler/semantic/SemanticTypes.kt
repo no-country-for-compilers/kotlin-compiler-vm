@@ -11,6 +11,12 @@ sealed class Type {
     object Void : Type()
     data class Array(val elementType: Type) : Type()
     object Unknown : Type()
+    
+    // Специальные типы для встроенных функций (не используются в пользовательском коде)
+    /** Любой примитивный тип (int, float, bool) */
+    object Primitive : Type()
+    /** Любой массив (int[], float[], bool[]) */
+    object AnyArray : Type()
 
     override fun toString(): String = when (this) {
         Int -> "int"
@@ -19,6 +25,8 @@ sealed class Type {
         Void -> "void"
         is Array -> "${elementType}[]"
         Unknown -> "unknown"
+        Primitive -> "primitive"
+        AnyArray -> "array"
     }
 }
 
@@ -47,7 +55,7 @@ data class FunctionSymbol(
 
 class Scope(val parent: Scope?) {
     private val variables = mutableMapOf<String, VariableSymbol>()
-    private val functions = mutableMapOf<String, MutableList<FunctionSymbol>>()
+    private val functions = mutableMapOf<String, FunctionSymbol>()
 
     fun defineVariable(symbol: VariableSymbol): Boolean {
         if (variables.containsKey(symbol.name)) {
@@ -58,62 +66,39 @@ class Scope(val parent: Scope?) {
     }
 
     fun defineFunction(symbol: FunctionSymbol): Boolean {
-        val functionList = functions.getOrPut(symbol.name) { mutableListOf() }
-        // Проверяем, нет ли уже функции с такой же сигнатурой
-        if (functionList.any { it.parameters == symbol.parameters }) {
+        if (functions.containsKey(symbol.name)) {
             return false
         }
-        functionList.add(symbol)
+        functions[symbol.name] = symbol
         return true
     }
 
     fun resolveVariable(name: String): VariableSymbol? =
         variables[name] ?: parent?.resolveVariable(name)
 
-    fun resolveFunction(name: String): FunctionSymbol? {
-        val localFunctions = functions[name]
-        if (localFunctions != null && localFunctions.isNotEmpty()) {
-            return localFunctions[0] // Возвращаем первую найденную (для обратной совместимости)
-        }
-        return parent?.resolveFunction(name)
-    }
-
-    /**
-     * Разрешает функцию по имени и типам аргументов (для поддержки перегрузки).
-     * 
-     * @param name имя функции
-     * @param argTypes типы аргументов
-     * @return подходящая функция или null, если не найдена
-     */
-    fun resolveFunction(name: String, argTypes: List<Type>): FunctionSymbol? {
-        val localFunctions = functions[name]
-        if (localFunctions != null) {
-            // Ищем функцию с подходящими типами параметров
-            for (fn in localFunctions) {
-                if (fn.parameters.size == argTypes.size) {
-                    var matches = true
-                    for (i in argTypes.indices) {
-                        if (!isAssignable(argTypes[i], fn.parameters[i].type)) {
-                            matches = false
-                            break
-                        }
-                    }
-                    if (matches) {
-                        return fn
-                    }
-                }
-            }
-        }
-        return parent?.resolveFunction(name, argTypes)
-    }
+    fun resolveFunction(name: String): FunctionSymbol? =
+        functions[name] ?: parent?.resolveFunction(name)
 
     private fun isAssignable(from: Type, to: Type): Boolean {
         if (to == Type.Unknown || from == Type.Unknown) return true
-        return from == to
+        if (from == to) return true
+        
+        // Специальная логика для встроенных функций
+        // Primitive принимает любой примитивный тип (int, float, bool)
+        if (to == Type.Primitive) {
+            return from == Type.Int || from == Type.Float || from == Type.Bool
+        }
+        
+        // AnyArray принимает любой массив
+        if (to == Type.AnyArray) {
+            return from is Type.Array
+        }
+        
+        return false
     }
 
     fun getAllVariables(): Map<String, VariableSymbol> = variables.toMap()
-    fun getAllFunctions(): Map<String, List<FunctionSymbol>> = functions.mapValues { it.value.toList() }
+    fun getAllFunctions(): Map<String, FunctionSymbol> = functions.toMap()
 }
 
 data class SemanticError(
