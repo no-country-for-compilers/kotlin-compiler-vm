@@ -4,4 +4,7 @@ func main(): void {
     let sum: int = x + y;
     let product: int = x * y;
     let flag: bool = x > y;
+    print(sum);
+    print(product);
+    print(flag);
 }

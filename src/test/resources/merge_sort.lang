@@ -55,3 +55,17 @@ func merge(left: int[], leftSize: int, right: int[], rightSize: int): int[] {
     
     return result;
 }
+
+func main(): void {
+    let arr: int[] = int[8];
+    arr[0] = 64;
+    arr[1] = 34;
+    arr[2] = 25;
+    arr[3] = 12;
+    arr[4] = 22;
+    arr[5] = 11;
+    arr[6] = 90;
+    arr[7] = 5;
+    let sorted: int[] = mergeSort(arr, 8);
+    printArray(sorted);
+}

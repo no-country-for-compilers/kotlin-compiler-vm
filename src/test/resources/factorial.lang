@@ -8,4 +8,5 @@ func factorial(n: int): int {
 
 func main(): void {
     let result: int = factorial(20);
+    print(result);
 }

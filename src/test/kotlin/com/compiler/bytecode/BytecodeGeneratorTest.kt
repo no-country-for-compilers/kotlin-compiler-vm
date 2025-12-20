@@ -1127,6 +1127,8 @@ class BytecodeGeneratorTest {
         assertTrue(instructions.contains(Opcodes.MUL_INT), "Should contain MUL_INT for product")
         // Should have comparison
         assertTrue(instructions.contains(Opcodes.GT_INT), "Should contain GT_INT for comparison")
+        // Should have print calls
+        assertTrue(instructions.contains(Opcodes.PRINT), "Should contain PRINT for output")
         
         // Check constants
         assertTrue(module.intConstants.contains(42L), "Should have constant 42")
@@ -1168,6 +1170,7 @@ class BytecodeGeneratorTest {
         val mainInstructions = main.instructions
         assertTrue(mainInstructions.contains(Opcodes.CALL), "Should contain CALL to factorial")
         assertTrue(mainInstructions.contains(Opcodes.STORE_LOCAL), "Should store result")
+        assertTrue(mainInstructions.contains(Opcodes.PRINT), "Should contain PRINT for output")
     }
     
     @Test
@@ -1175,9 +1178,12 @@ class BytecodeGeneratorTest {
         val source = loadResource("prime.lang")
         val module = compile(source)
         
-        assertEquals(1, module.functions.size)
-        val sieve = module.functions[0]
-        assertEquals("sieve", sieve.name)
+        assertEquals(2, module.functions.size)
+        
+        val sieve = module.functions.find { it.name == "sieve" }
+            ?: fail("Should have sieve function")
+        val main = module.functions.find { it.name == "main" }
+            ?: fail("Should have main function")
         
         val instructions = sieve.instructions
         
@@ -1199,10 +1205,17 @@ class BytecodeGeneratorTest {
         // Should have return
         assertTrue(instructions.contains(Opcodes.RETURN), "Should contain RETURN with array")
         
+        // Check main function
+        val mainInstructions = main.instructions
+        assertTrue(mainInstructions.contains(Opcodes.CALL), "Should contain CALL to sieve")
+        assertTrue(mainInstructions.contains(Opcodes.STORE_LOCAL), "Should store result")
+        assertTrue(mainInstructions.contains(Opcodes.PRINT_ARRAY), "Should contain PRINT_ARRAY for output")
+        
         // Check constants
         assertTrue(module.intConstants.contains(0L), "Should have constant 0")
         assertTrue(module.intConstants.contains(1L), "Should have constant 1")
         assertTrue(module.intConstants.contains(2L), "Should have constant 2")
+        assertTrue(module.intConstants.contains(30L), "Should have constant 30")
     }
     
     @Test
@@ -1210,12 +1223,14 @@ class BytecodeGeneratorTest {
         val source = loadResource("merge_sort.lang")
         val module = compile(source)
         
-        assertEquals(2, module.functions.size)
+        assertEquals(3, module.functions.size)
         
         val mergeSort = module.functions.find { it.name == "mergeSort" }
             ?: fail("Should have mergeSort function")
         val merge = module.functions.find { it.name == "merge" }
             ?: fail("Should have merge function")
+        val main = module.functions.find { it.name == "main" }
+            ?: fail("Should have main function")
         
         // Check mergeSort function
         val mergeSortInstructions = mergeSort.instructions
@@ -1236,10 +1251,19 @@ class BytecodeGeneratorTest {
         assertTrue(mergeInstructions.contains(Opcodes.LE_INT), "Should contain LE_INT for comparison")
         assertTrue(mergeInstructions.contains(Opcodes.RETURN), "Should contain RETURN")
         
+        // Check main function
+        val mainInstructions = main.instructions
+        assertTrue(mainInstructions.contains(Opcodes.NEW_ARRAY_INT), "Should contain NEW_ARRAY_INT for array initialization")
+        assertTrue(mainInstructions.contains(Opcodes.ARRAY_STORE), "Should contain ARRAY_STORE for array initialization")
+        assertTrue(mainInstructions.contains(Opcodes.CALL), "Should contain CALL to mergeSort")
+        assertTrue(mainInstructions.contains(Opcodes.STORE_LOCAL), "Should store result")
+        assertTrue(mainInstructions.contains(Opcodes.PRINT_ARRAY), "Should contain PRINT_ARRAY for output")
+        
         // Check constants
         assertTrue(module.intConstants.contains(0L), "Should have constant 0")
         assertTrue(module.intConstants.contains(1L), "Should have constant 1")
         assertTrue(module.intConstants.contains(2L), "Should have constant 2")
+        assertTrue(module.intConstants.contains(8L), "Should have constant 8")
     }
 }
 
