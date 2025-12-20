@@ -394,15 +394,13 @@ data class CompiledFunction(
     val parameters: List<ParameterInfo>,    // Список параметров
     val returnType: TypeNode,               // Возвращаемый тип
     val localsCount: Int,                   // Количество локальных переменных
-    val instructions: ByteArray,            // Байткод функции (массив байтов)
-    val maxStackSize: Int                   // Максимальный размер стека операндов
+    val instructions: ByteArray             // Байткод функции (массив байтов)
 )
 ```
 
 **Примечания:**
 - `localsCount` включает параметры функции
 - `instructions` содержит байткод в формате массива байтов
-- `maxStackSize` используется для проверки переполнения стека
 
 ### ParameterInfo
 
