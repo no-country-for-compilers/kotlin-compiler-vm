@@ -58,7 +58,7 @@ class E2ETest {
         
         val mainInstructions = main.instructions
         assertTrue(mainInstructions.contains(Opcodes.CALL), "Main should call factorial")
-        //assertTrue(mainInstructions.contains(Opcodes.PRINT), "Main should print result")
+        assertTrue(mainInstructions.contains(Opcodes.PRINT), "Main should print result")
         
         assertTrue(module.intConstants.contains(20L), "Should have constant 20")
         assertTrue(module.intConstants.contains(1L), "Should have constant 1")

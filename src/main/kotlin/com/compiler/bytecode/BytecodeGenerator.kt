@@ -146,21 +146,9 @@ class BytecodeGenerator(
             
             is ExprStmt -> {
                 generateExpression(stmt.expr)
-                // Don't POP for built-in functions that don't return values
-                // (print and printArray consume their arguments and don't leave anything on stack)
-                val shouldPop = (stmt.expr as? CallExpr)?.let { callExpr ->
-                    val fnSymbol = globalScope.resolveFunction(callExpr.name)
-                    if (fnSymbol != null) {
-                        // Built-in functions print and printArray are void and don't leave value on stack
-                        // Regular void functions also don't leave value on stack (they use RETURN_VOID)
-                        // So we only need to POP for functions that return a value
-                        fnSymbol.returnType != com.compiler.semantic.Type.Void
-                    } else {
-                        true // Unknown function, assume it returns a value
-                    }
-                } ?: true // Not a function call, assume expression leaves a value on stack
-                
-                if (shouldPop) {
+                // Only POP if the expression leaves a value on the stack
+                // (AssignExpr and void CallExpr don't leave values)
+                if (expressionLeavesValueOnStack(stmt.expr)) {
                     ctx.builder.emit(Opcodes.POP)
                 }
             }
@@ -217,7 +205,10 @@ class BytecodeGenerator(
                     }
                     is ForExprInit -> {
                         generateExpression(init.expr)
-                        ctx.builder.emit(Opcodes.POP)
+                        // Only POP if the expression leaves a value on the stack
+                        if (expressionLeavesValueOnStack(init.expr)) {
+                            ctx.builder.emit(Opcodes.POP)
+                        }
                     }
                     is ForNoInit -> {
                         // nothing
@@ -238,7 +229,10 @@ class BytecodeGenerator(
                     // Increment
                     if (stmt.increment != null) {
                         generateExpression(stmt.increment)
-                        ctx.builder.emit(Opcodes.POP)
+                        // Only POP if the expression leaves a value on the stack
+                        if (expressionLeavesValueOnStack(stmt.increment)) {
+                            ctx.builder.emit(Opcodes.POP)
+                        }
                     }
                     
                     // Jump back to loop start
@@ -254,7 +248,10 @@ class BytecodeGenerator(
                     
                     if (stmt.increment != null) {
                         generateExpression(stmt.increment)
-                        ctx.builder.emit(Opcodes.POP)
+                        // Only POP if the expression leaves a value on the stack
+                        if (expressionLeavesValueOnStack(stmt.increment)) {
+                            ctx.builder.emit(Opcodes.POP)
+                        }
                     }
                     
                     val jumpBackAddr = ctx.builder.currentAddress()
@@ -281,6 +278,27 @@ class BytecodeGenerator(
         }
         
         return localIndex
+    }
+    
+    /**
+     * Checks if an expression leaves a value on the operand stack.
+     * Returns false for expressions that consume their value (e.g., AssignExpr, void CallExpr).
+     */
+    private fun expressionLeavesValueOnStack(expr: Expression): Boolean {
+        return when (expr) {
+            is AssignExpr -> false // AssignExpr uses STORE_LOCAL/ARRAY_STORE which consume the value
+            is CallExpr -> {
+                val fnSymbol = globalScope.resolveFunction(expr.name)
+                if (fnSymbol != null) {
+                    // Built-in functions print/printArray are void and don't leave value
+                    // Regular void functions also don't leave value (they use RETURN_VOID)
+                    fnSymbol.returnType != com.compiler.semantic.Type.Void
+                } else {
+                    true // Unknown function, assume it returns a value
+                }
+            }
+            else -> true // Other expressions (literals, variables, binary ops, etc.) leave values
+        }
     }
     
     /**
