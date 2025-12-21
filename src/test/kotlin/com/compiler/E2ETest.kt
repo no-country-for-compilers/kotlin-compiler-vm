@@ -2,6 +2,7 @@ import com.compiler.lexer.Lexer
 import com.compiler.parser.Parser
 import com.compiler.semantic.DefaultSemanticAnalyzer
 import com.compiler.bytecode.BytecodeGenerator
+import com.compiler.bytecode.BytecodePrinter
 import com.compiler.bytecode.Opcodes
 import com.compiler.vm.VirtualMachine
 import com.compiler.vm.VMResult

@@ -172,7 +172,12 @@ class BytecodeGenerator(
                 
                 generateBlock(stmt.thenBranch, localVars, localIndex)
                 
-                val jumpAddr = if (stmt.elseBranch != null) {
+                // Check if then branch ends with return - if so, no need for JUMP
+                val thenEndsWithReturn = ctx.builder.getLastOpcode()?.let { 
+                    it == Opcodes.RETURN || it == Opcodes.RETURN_VOID 
+                } ?: false
+                
+                val jumpAddr = if (stmt.elseBranch != null && !thenEndsWithReturn) {
                     val addr = ctx.builder.currentAddress()
                     ctx.builder.emit(Opcodes.JUMP, 0) // patch later
                     addr
@@ -180,13 +185,21 @@ class BytecodeGenerator(
                     null
                 }
                 
-                val afterThenAddr = ctx.builder.currentAddress()
-                ctx.builder.patchOperand(jumpFalseAddr, afterThenAddr - jumpFalseAddr)
-                
                 if (stmt.elseBranch != null) {
+                    // Calculate address for JUMP_IF_FALSE patch - should jump to start of else branch
+                    val elseBranchStartAddr = ctx.builder.currentAddress()
+                    ctx.builder.patchOperand(jumpFalseAddr, elseBranchStartAddr - jumpFalseAddr)
+                    
                     generateBlock(stmt.elseBranch, localVars, localIndex)
-                    val afterElseAddr = ctx.builder.currentAddress()
-                    ctx.builder.patchOperand(jumpAddr!!, afterElseAddr - jumpAddr)
+                    
+                    if (jumpAddr != null) {
+                        val afterElseAddr = ctx.builder.currentAddress()
+                        ctx.builder.patchOperand(jumpAddr, afterElseAddr - jumpAddr)
+                    }
+                } else {
+                    // No else branch - JUMP_IF_FALSE should jump to after then branch
+                    val afterThenAddr = ctx.builder.currentAddress()
+                    ctx.builder.patchOperand(jumpFalseAddr, afterThenAddr - jumpFalseAddr)
                 }
             }
             
