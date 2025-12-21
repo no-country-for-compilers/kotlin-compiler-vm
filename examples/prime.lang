@@ -38,3 +38,8 @@ func sieve(limit: int): int[] {
 
     return primes;
 }
+
+func main(): void {
+    let primes: int[] = sieve(100000);
+    printArray(primes);
+}

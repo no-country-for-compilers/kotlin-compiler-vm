@@ -55,3 +55,12 @@ func merge(left: int[], leftSize: int, right: int[], rightSize: int): int[] {
     
     return result;
 }
+
+func main(): void {
+    let arr: int[] = int[100000];
+    for (let i: int = 0; i < 100000; i = i + 1) {
+        arr[i] = 99999 - i;
+    }
+    let sorted: int[] = mergeSort(arr, 100000);
+    printArray(sorted);
+}
