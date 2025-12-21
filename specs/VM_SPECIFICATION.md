@@ -18,7 +18,7 @@ class VirtualMachine(
     private val jitCompiler: JITCompilerInterface? = null  // Опциональный JIT
 ) {
     private val operandStack: RcOperandStack      // Стек операндов
-    private val callStack: Stack<CallFrame>       // Стек вызовов функций
+    private val callStack: ArrayDeque<CallFrame>  // Стек вызовов функций
     private val memoryManager: MemoryManager       // Управление памятью
 }
 ```
@@ -355,13 +355,13 @@ enum class VMResult {
 
 - **Операнд:** игнорируется
 - **Действие:**
-  1. Снять значение со стека
-  2. Снять индекс со стека (должен быть `Value.IntValue`)
-  3. Снять ссылку на массив со стека (должен быть `Value.ArrayRef`)
-  4. Определить тип значения и вызвать соответствующий метод:
+  1. Снять значение со стека (верхний элемент, должен быть `Value.IntValue`, `Value.FloatValue` или `Value.BoolValue`)
+  2. Снять индекс и ссылку на массив со стека (индекс сверху, должен быть `Value.IntValue`; ссылка на массив снизу, должна быть `Value.ArrayRef`)
+  3. Определить тип значения и вызвать соответствующий метод:
      - `Value.IntValue` → `memoryManager.intArrayStore(ref, index, value)`
      - `Value.FloatValue` → `memoryManager.floatArrayStore(ref, index, value)`
      - `Value.BoolValue` → `memoryManager.boolArrayStore(ref, index, value)`
+- **Порядок на стеке:** `..., array_ref, int_index, value → ...` (value сверху)
 - **Ошибки:** `STACK_UNDERFLOW`, `INVALID_VALUE_TYPE`, `ARRAY_INDEX_OUT_OF_BOUNDS`, `INVALID_HEAP_ID`
 
 ### Встроенные функции

@@ -319,7 +319,7 @@ data class BytecodeModule(
 ```kotlin
 class VirtualMachine {
     private val operandStack: Stack<Value>      // Стек для вычислений
-    private val callStack: Stack<CallFrame>     // Стек вызовов функций
+    private val callStack: ArrayDeque<CallFrame>  // Стек вызовов функций
     private val heap: Heap                      // Куча для объектов (массивов)
     
     fun execute(module: BytecodeModule)
