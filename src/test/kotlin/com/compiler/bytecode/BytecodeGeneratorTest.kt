@@ -1215,7 +1215,7 @@ class BytecodeGeneratorTest {
         assertTrue(module.intConstants.contains(0L), "Should have constant 0")
         assertTrue(module.intConstants.contains(1L), "Should have constant 1")
         assertTrue(module.intConstants.contains(2L), "Should have constant 2")
-        assertTrue(module.intConstants.contains(30L), "Should have constant 30")
+        assertTrue(module.intConstants.contains(100000L), "Should have constant 100000")
     }
     
     @Test
@@ -1266,7 +1266,7 @@ class BytecodeGeneratorTest {
         assertTrue(module.intConstants.contains(0L), "Should have constant 0")
         assertTrue(module.intConstants.contains(1L), "Should have constant 1")
         assertTrue(module.intConstants.contains(2L), "Should have constant 2")
-        assertTrue(module.intConstants.contains(10000L), "Should have constant 10000")
+        assertTrue(module.intConstants.contains(100000L), "Should have constant 100000")
         assertTrue(module.intConstants.contains(99999L), "Should have constant 99999")
     }
 }

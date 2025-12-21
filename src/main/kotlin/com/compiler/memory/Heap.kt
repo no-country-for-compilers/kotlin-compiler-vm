@@ -18,6 +18,13 @@ class Heap {
         return id
     }
 
+    fun allocBoolArray(size: Int): Int {
+        require(size >= 0) { "Array size must be non-negative, got $size" }
+        val id = nextId++
+        objects[id] = BoolArrayObject(BooleanArray(size), refCount = 0)
+        return id
+    }
+
     fun get(id: Int): HeapObject =
         objects[id] ?: throw IllegalStateException("Invalid heapId=$id (object not found)")
 

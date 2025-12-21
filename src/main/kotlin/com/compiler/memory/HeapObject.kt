@@ -18,3 +18,10 @@ data class FloatArrayObject(
 ) : HeapObject {
     override val sizeBytes: Int get() = elements.size * java.lang.Double.BYTES
 }
+
+data class BoolArrayObject(
+    val elements: BooleanArray,
+    override var refCount: Int = 0
+) : HeapObject {
+    override val sizeBytes: Int get() = elements.size * java.lang.Byte.BYTES
+}

@@ -12,6 +12,7 @@ object Help {
               compiler --lex <source-file>        Tokenize source file (lexer only)
               compiler --parse <source-file>      Tokenize + parse and pretty-print AST
               compiler --semantic <source-file>   Perform semantic analysis
+              compiler --run <source-file>        Compile and run on virtual machine
               compiler --help                     Show this help message
 
             Examples:
@@ -19,6 +20,7 @@ object Help {
               compiler --lex examples/factorial.lang
               compiler --parse examples/factorial.lang
               compiler --semantic examples/factorial.lang
+              compiler --run examples/factorial.lang
 
             Source file extension: .lang
         """.trimIndent()

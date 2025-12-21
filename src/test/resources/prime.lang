@@ -40,6 +40,6 @@ func sieve(limit: int): int[] {
 }
 
 func main(): void {
-    let primes: int[] = sieve(30);
+    let primes: int[] = sieve(100000);
     printArray(primes);
 }

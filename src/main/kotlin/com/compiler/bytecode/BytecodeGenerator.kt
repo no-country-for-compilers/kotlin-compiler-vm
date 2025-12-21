@@ -24,6 +24,36 @@ class BytecodeGenerator(
     // Function information for call resolution
     private val functionIndices = mutableMapOf<String, Int>()
     
+    // Operator to opcode mapping
+    private data class OpcodePair(val intOp: Byte, val floatOp: Byte)
+    
+    private val arithmeticOps = mapOf(
+        TokenType.PLUS to OpcodePair(Opcodes.ADD_INT, Opcodes.ADD_FLOAT),
+        TokenType.MINUS to OpcodePair(Opcodes.SUB_INT, Opcodes.SUB_FLOAT),
+        TokenType.STAR to OpcodePair(Opcodes.MUL_INT, Opcodes.MUL_FLOAT),
+        TokenType.SLASH to OpcodePair(Opcodes.DIV_INT, Opcodes.DIV_FLOAT)
+    )
+    
+    private val comparisonOps = mapOf(
+        TokenType.EQ to OpcodePair(Opcodes.EQ_INT, Opcodes.EQ_FLOAT),
+        TokenType.NE to OpcodePair(Opcodes.NE_INT, Opcodes.NE_FLOAT),
+        TokenType.LT to OpcodePair(Opcodes.LT_INT, Opcodes.LT_FLOAT),
+        TokenType.LE to OpcodePair(Opcodes.LE_INT, Opcodes.LE_FLOAT),
+        TokenType.GT to OpcodePair(Opcodes.GT_INT, Opcodes.GT_FLOAT),
+        TokenType.GE to OpcodePair(Opcodes.GE_INT, Opcodes.GE_FLOAT)
+    )
+    
+    private val builtinFunctions = mapOf(
+        "print" to Opcodes.PRINT,
+        "printArray" to Opcodes.PRINT_ARRAY
+    )
+    
+    private val arrayTypeToOpcode = mapOf(
+        TypeNode.IntType::class to Opcodes.NEW_ARRAY_INT,
+        TypeNode.FloatType::class to Opcodes.NEW_ARRAY_FLOAT,
+        TypeNode.BoolType::class to Opcodes.NEW_ARRAY_BOOL
+    )
+    
     // Current generation context
     private data class FunctionContext(
         val function: FunctionSymbol,
@@ -146,36 +176,57 @@ class BytecodeGenerator(
             
             is ExprStmt -> {
                 generateExpression(stmt.expr)
-                ctx.builder.emit(Opcodes.POP)
+                // Only POP if the expression leaves a value on the stack
+                // (AssignExpr and void CallExpr don't leave values)
+                if (expressionLeavesValueOnStack(stmt.expr)) {
+                    ctx.builder.emit(Opcodes.POP)
+                }
             }
             
             is IfStmt -> {
                 generateExpression(stmt.condition)
-                val jumpFalseAddr = ctx.builder.currentAddress()
-                ctx.builder.emit(Opcodes.JUMP_IF_FALSE, 0) // patch later
                 
-                generateBlock(stmt.thenBranch, localVars, localIndex)
-                
-                val jumpAddr = if (stmt.elseBranch != null) {
-                    val addr = ctx.builder.currentAddress()
-                    ctx.builder.emit(Opcodes.JUMP, 0) // patch later
-                    addr
+                // Create labels for jump targets
+                val elseLabel = if (stmt.elseBranch != null) {
+                    ctx.builder.createLabel("else_${ctx.builder.currentAddress()}")
                 } else {
                     null
                 }
+                val afterIfLabel = ctx.builder.createLabel("after_if_${ctx.builder.currentAddress()}")
                 
-                val afterThenAddr = ctx.builder.currentAddress()
-                ctx.builder.patchOperand(jumpFalseAddr, afterThenAddr - jumpFalseAddr)
-                
-                if (stmt.elseBranch != null) {
-                    generateBlock(stmt.elseBranch, localVars, localIndex)
-                    val afterElseAddr = ctx.builder.currentAddress()
-                    ctx.builder.patchOperand(jumpAddr!!, afterElseAddr - jumpAddr)
+                // Emit conditional jump - will resolve label when it's defined
+                if (elseLabel != null) {
+                    ctx.builder.emitJump(Opcodes.JUMP_IF_FALSE, elseLabel)
+                } else {
+                    ctx.builder.emitJump(Opcodes.JUMP_IF_FALSE, afterIfLabel)
                 }
+                
+                // Generate then branch
+                generateBlock(stmt.thenBranch, localVars, localIndex)
+                
+                // Check if then branch ends with return - if so, no need for JUMP
+                val thenEndsWithReturn = ctx.builder.getLastOpcode()?.let { 
+                    it == Opcodes.RETURN || it == Opcodes.RETURN_VOID 
+                } ?: false
+                
+                // Emit unconditional jump to skip else branch (if needed)
+                if (stmt.elseBranch != null && !thenEndsWithReturn) {
+                    ctx.builder.emitJump(Opcodes.JUMP, afterIfLabel)
+                }
+                
+                // Define else branch label and generate else branch
+                if (stmt.elseBranch != null && elseLabel != null) {
+                    ctx.builder.defineLabel(elseLabel.name)
+                    generateBlock(stmt.elseBranch, localVars, localIndex)
+                }
+                
+                // Define label after if statement
+                ctx.builder.defineLabel(afterIfLabel.name)
             }
             
             is ForStmt -> {
-                val loopStartAddr: Int
+                // Create labels for loop control
+                val loopStartLabel = ctx.builder.createLabel("loop_start_${ctx.builder.currentAddress()}")
                 
                 // Initializer
                 when (val init = stmt.initializer) {
@@ -188,20 +239,24 @@ class BytecodeGenerator(
                     }
                     is ForExprInit -> {
                         generateExpression(init.expr)
-                        ctx.builder.emit(Opcodes.POP)
+                        // Only POP if the expression leaves a value on the stack
+                        if (expressionLeavesValueOnStack(init.expr)) {
+                            ctx.builder.emit(Opcodes.POP)
+                        }
                     }
                     is ForNoInit -> {
                         // nothing
                     }
                 }
                 
-                loopStartAddr = ctx.builder.currentAddress()
+                // Define loop start label
+                ctx.builder.defineLabel(loopStartLabel.name)
                 
                 // Condition
                 if (stmt.condition != null) {
+                    val afterLoopLabel = ctx.builder.createLabel("after_loop_${ctx.builder.currentAddress()}")
                     generateExpression(stmt.condition)
-                    val jumpFalseAddr = ctx.builder.currentAddress()
-                    ctx.builder.emit(Opcodes.JUMP_IF_FALSE, 0) // patch later
+                    ctx.builder.emitJump(Opcodes.JUMP_IF_FALSE, afterLoopLabel)
                     
                     // Loop body
                     localIndex = generateBlock(stmt.body, localVars, localIndex)
@@ -209,27 +264,32 @@ class BytecodeGenerator(
                     // Increment
                     if (stmt.increment != null) {
                         generateExpression(stmt.increment)
-                        ctx.builder.emit(Opcodes.POP)
+                        // Only POP if the expression leaves a value on the stack
+                        if (expressionLeavesValueOnStack(stmt.increment)) {
+                            ctx.builder.emit(Opcodes.POP)
+                        }
                     }
                     
                     // Jump back to loop start
-                    val jumpBackAddr = ctx.builder.currentAddress()
-                    ctx.builder.emit(Opcodes.JUMP, loopStartAddr - jumpBackAddr)
+                    ctx.builder.emitJump(Opcodes.JUMP, loopStartLabel)
                     
-                    // Patch loop exit
-                    val afterLoopAddr = ctx.builder.currentAddress()
-                    ctx.builder.patchOperand(jumpFalseAddr, afterLoopAddr - jumpFalseAddr)
+                    // Define label after loop
+                    ctx.builder.defineLabel(afterLoopLabel.name)
                 } else {
-                    // Infinite loop
+                    // Infinite loop - no condition, no exit label needed
                     localIndex = generateBlock(stmt.body, localVars, localIndex)
                     
                     if (stmt.increment != null) {
                         generateExpression(stmt.increment)
-                        ctx.builder.emit(Opcodes.POP)
+                        // Only POP if the expression leaves a value on the stack
+                        if (expressionLeavesValueOnStack(stmt.increment)) {
+                            ctx.builder.emit(Opcodes.POP)
+                        }
                     }
                     
-                    val jumpBackAddr = ctx.builder.currentAddress()
-                    ctx.builder.emit(Opcodes.JUMP, loopStartAddr - jumpBackAddr)
+                    // Jump back to loop start
+                    ctx.builder.emitJump(Opcodes.JUMP, loopStartLabel)
+                    // Note: No afterLoopLabel for infinite loops - they never exit
                 }
             }
             
@@ -252,6 +312,27 @@ class BytecodeGenerator(
         }
         
         return localIndex
+    }
+    
+    /**
+     * Checks if an expression leaves a value on the operand stack.
+     * Returns false for expressions that consume their value (e.g., AssignExpr, void CallExpr).
+     */
+    private fun expressionLeavesValueOnStack(expr: Expression): Boolean {
+        return when (expr) {
+            is AssignExpr -> false // AssignExpr uses STORE_LOCAL/ARRAY_STORE which consume the value
+            is CallExpr -> {
+                val fnSymbol = globalScope.resolveFunction(expr.name)
+                if (fnSymbol != null) {
+                    // Built-in functions print/printArray are void and don't leave value
+                    // Regular void functions also don't leave value (they use RETURN_VOID)
+                    fnSymbol.returnType != com.compiler.semantic.Type.Void
+                } else {
+                    true // Unknown function, assume it returns a value
+                }
+            }
+            else -> true // Other expressions (literals, variables, binary ops, etc.) leave values
+        }
     }
     
     /**
@@ -352,9 +433,9 @@ class BytecodeGenerator(
             
             is UnaryExpr -> {
                 generateExpression(expr.right)
-                val operandType = inferExpressionType(expr.right)
                 when (expr.operator) {
                     TokenType.MINUS -> {
+                        val operandType = inferExpressionType(expr.right)
                         when (operandType) {
                             Type.Int -> ctx.builder.emit(Opcodes.NEG_INT)
                             Type.Float -> ctx.builder.emit(Opcodes.NEG_FLOAT)
@@ -364,9 +445,7 @@ class BytecodeGenerator(
                     TokenType.PLUS -> {
                         // +x = x, do nothing
                     }
-                    TokenType.NOT -> {
-                        ctx.builder.emit(Opcodes.NOT)
-                    }
+                    TokenType.NOT -> ctx.builder.emit(Opcodes.NOT)
                     else -> throw IllegalArgumentException("Unsupported unary operator: ${expr.operator}")
                 }
             }
@@ -378,49 +457,24 @@ class BytecodeGenerator(
                 val leftType = inferExpressionType(expr.left)
                 val isFloat = leftType == Type.Float
                 
-                when (expr.operator) {
-                    TokenType.PLUS -> {
-                        if (isFloat) ctx.builder.emit(Opcodes.ADD_FLOAT) else ctx.builder.emit(Opcodes.ADD_INT)
-                    }
-                    TokenType.MINUS -> {
-                        if (isFloat) ctx.builder.emit(Opcodes.SUB_FLOAT) else ctx.builder.emit(Opcodes.SUB_INT)
-                    }
-                    TokenType.STAR -> {
-                        if (isFloat) ctx.builder.emit(Opcodes.MUL_FLOAT) else ctx.builder.emit(Opcodes.MUL_INT)
-                    }
-                    TokenType.SLASH -> {
-                        if (isFloat) ctx.builder.emit(Opcodes.DIV_FLOAT) else ctx.builder.emit(Opcodes.DIV_INT)
-                    }
-                    TokenType.PERCENT -> {
+                when {
+                    expr.operator == TokenType.PERCENT -> {
                         if (isFloat) {
                             throw IllegalArgumentException("Modulo operator % is not supported for float")
                         } else {
                             ctx.builder.emit(Opcodes.MOD_INT)
                         }
                     }
-                    
-                    TokenType.EQ -> {
-                        if (isFloat) ctx.builder.emit(Opcodes.EQ_FLOAT) else ctx.builder.emit(Opcodes.EQ_INT)
+                    expr.operator in arithmeticOps -> {
+                        val opcodes = arithmeticOps[expr.operator]!!
+                        ctx.builder.emit(if (isFloat) opcodes.floatOp else opcodes.intOp)
                     }
-                    TokenType.NE -> {
-                        if (isFloat) ctx.builder.emit(Opcodes.NE_FLOAT) else ctx.builder.emit(Opcodes.NE_INT)
+                    expr.operator in comparisonOps -> {
+                        val opcodes = comparisonOps[expr.operator]!!
+                        ctx.builder.emit(if (isFloat) opcodes.floatOp else opcodes.intOp)
                     }
-                    TokenType.LT -> {
-                        if (isFloat) ctx.builder.emit(Opcodes.LT_FLOAT) else ctx.builder.emit(Opcodes.LT_INT)
-                    }
-                    TokenType.LE -> {
-                        if (isFloat) ctx.builder.emit(Opcodes.LE_FLOAT) else ctx.builder.emit(Opcodes.LE_INT)
-                    }
-                    TokenType.GT -> {
-                        if (isFloat) ctx.builder.emit(Opcodes.GT_FLOAT) else ctx.builder.emit(Opcodes.GT_INT)
-                    }
-                    TokenType.GE -> {
-                        if (isFloat) ctx.builder.emit(Opcodes.GE_FLOAT) else ctx.builder.emit(Opcodes.GE_INT)
-                    }
-                    
-                    TokenType.AND -> ctx.builder.emit(Opcodes.AND)
-                    TokenType.OR -> ctx.builder.emit(Opcodes.OR)
-                    
+                    expr.operator == TokenType.AND -> ctx.builder.emit(Opcodes.AND)
+                    expr.operator == TokenType.OR -> ctx.builder.emit(Opcodes.OR)
                     else -> throw IllegalArgumentException("Unsupported binary operator: ${expr.operator}")
                 }
             }
@@ -450,23 +504,13 @@ class BytecodeGenerator(
                 }
                 
                 // Check if this is a built-in function
-                val fnSymbol = globalScope.resolveFunction(expr.name)
-                if (fnSymbol != null) {
-                    when (expr.name) {
-                        "print" -> {
-                            ctx.builder.emit(Opcodes.PRINT)
-                        }
-                        "printArray" -> {
-                            ctx.builder.emit(Opcodes.PRINT_ARRAY)
-                        }
-                        else -> {
-                            val fnIndex = functionIndices[expr.name]
-                                ?: throw IllegalStateException("Function ${expr.name} not found")
-                            ctx.builder.emit(Opcodes.CALL, fnIndex)
-                        }
-                    }
+                val builtinOpcode = builtinFunctions[expr.name]
+                if (builtinOpcode != null) {
+                    ctx.builder.emit(builtinOpcode)
                 } else {
-                    throw IllegalStateException("Function ${expr.name} not found")
+                    val fnIndex = functionIndices[expr.name]
+                        ?: throw IllegalStateException("Function ${expr.name} not found")
+                    ctx.builder.emit(Opcodes.CALL, fnIndex)
                 }
             }
             
@@ -478,12 +522,9 @@ class BytecodeGenerator(
             
             is ArrayInitExpr -> {
                 generateExpression(expr.size)
-                when (expr.elementType) {
-                    is TypeNode.IntType -> ctx.builder.emit(Opcodes.NEW_ARRAY_INT)
-                    is TypeNode.FloatType -> ctx.builder.emit(Opcodes.NEW_ARRAY_FLOAT)
-                    is TypeNode.BoolType -> ctx.builder.emit(Opcodes.NEW_ARRAY_BOOL)
-                    else -> throw IllegalArgumentException("Unsupported array element type: ${expr.elementType}")
-                }
+                val opcode = arrayTypeToOpcode[expr.elementType::class]
+                    ?: throw IllegalArgumentException("Unsupported array element type: ${expr.elementType}")
+                ctx.builder.emit(opcode)
             }
         }
     }
