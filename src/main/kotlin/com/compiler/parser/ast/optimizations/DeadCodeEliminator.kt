@@ -3,34 +3,30 @@ package com.compiler.parser.ast.optimizations
 import com.compiler.parser.ast.*
 
 /**
- * Обработчик удаления мёртвого кода (Dead Code Elimination).
+ * Dead Code Elimination (DCE) processor.
  *
- * Алгоритм:
- * 1. Удаляет недостижимый код, расположенный после `return` в блоке.
- * 2. Выполняет консервативную локальную DCE внутри блоков — backward liveness для удаления
+ * Algorithm:
+ * 1. Removes unreachable code located after `return` inside a block.
+ * 2. Performs conservative local DCE inside blocks — backward liveness analysis to remove
  * ```
- *    неиспользуемых объявлений и чистых выражений. Сохраняет побочные эффекты.
+ *    unused declarations and pure expressions. Side effects are preserved.
  * ```
- * Правила побочных эффектов (консервативно):
- * - считются побочными: вызовы (CallExpr), присваивания (AssignExpr), создание массива
- * (ArrayInitExpr), доступ по индексу (ArrayAccessExpr).
- * - при отсутствии побочных эффектов неиспользуемые VarDecl удаляются; если инициализатор имеет
- * побочные эффекты — VarDecl преобразуется в ExprStmt(init).
+ * Side-effect rules (conservative):
+ * - considered side-effectful: calls (CallExpr), assignments (AssignExpr), array creation
+ * (ArrayInitExpr), array access (ArrayAccessExpr).
+ * - if there are no side effects, unused VarDecls are removed; if the initializer has side effects,
+ * VarDecl is transformed into ExprStmt(init).
  */
 object DeadCodeEliminator {
 
-    /** 
-     * Применяет оптимизацию к корню программы и возвращает новый Program. 
-     */
+    /** Applies the optimization to the program root and returns a new Program. */
     fun eliminate(program: Program): Program {
         val noUnreach = program.statements.mapNotNull { removeUnreachableTopLevel(it) }
         val optimizedTop = processBlockStatements(noUnreach)
         return Program(optimizedTop)
     }
 
-    /** 
-     * Удаляет недостижимый код внутри верхнего оператора или возвращает обработанный оператор.
-     */
+    /** Removes unreachable code inside a top-level statement or returns the processed statement. */
     private fun removeUnreachableTopLevel(stmt: Statement): Statement? =
             when (stmt) {
                 is BlockStmt -> removeUnreachableBlock(stmt)
@@ -47,9 +43,7 @@ object DeadCodeEliminator {
                 else -> stmt
             }
 
-    /** 
-     * Удаляет операторы, следующие после первого ReturnStmt внутри блока. 
-     */
+    /** Removes statements following the first ReturnStmt inside a block. */
     private fun removeUnreachableBlock(block: BlockStmt): BlockStmt {
         val out = ArrayList<Statement>()
         for (s in block.statements) {
@@ -65,8 +59,8 @@ object DeadCodeEliminator {
     }
 
     /**
-     * Обрабатывает список операторов (как блок) и возвращает новый список операторов с удалённым
-     * мёртвым кодом в пределах этого блока.
+     * Processes a list of statements (as a block) and returns a new list with dead code removed
+     * within this block.
      */
     private fun processBlockStatements(stmts: List<Statement>): List<Statement> {
         val result = ArrayList<Statement>()
@@ -184,8 +178,8 @@ object DeadCodeEliminator {
     }
 
     /**
-     * Рекурсивная обработка выражения: применяет оптимизацию к под-выражениям и возвращает новое
-     * выражение.
+     * Recursively processes an expression: applies optimization to sub-expressions and returns a
+     * new expression.
      */
     private fun processExpression(expr: Expression): Expression =
             when (expr) {
@@ -228,9 +222,7 @@ object DeadCodeEliminator {
                         )
             }
 
-    /** 
-     * Собирает имена переменных, читаемые в выражении. 
-     */
+    /** Collects variable names read in an expression. */
     private fun collectUsedVars(expr: Expression): Set<String> {
         val used = HashSet<String>()
         fun walk(e: Expression) {
@@ -267,9 +259,7 @@ object DeadCodeEliminator {
         return used
     }
 
-    /** 
-     * Консервативная проверка наличия побочных эффектов в выражении. 
-     */
+    /** Conservative check for side effects in an expression. */
     private fun isSideEffectful(expr: Expression): Boolean {
         var has = false
         fun walk(e: Expression) {
@@ -293,9 +283,7 @@ object DeadCodeEliminator {
         return has
     }
 
-    /** 
-     * Собирает имена переменных, используемых в операторе (консервативно). 
-     */
+    /** Collects variable names used in a statement (conservatively). */
     private fun collectUsedVarsFromStatement(stmt: Statement): Set<String> =
             when (stmt) {
                 is ReturnStmt -> stmt.value?.let { collectUsedVars(it) } ?: emptySet()
@@ -330,8 +318,8 @@ object DeadCodeEliminator {
             }
 
     /**
-     * Вычисляет множество переменных, которые должны быть живы перед входом в блок, если после
-     * блока живыми являются usedAfter.
+     * Computes the set of variables that must be live before entering a block, given that usedAfter
+     * are live after the block.
      */
     private fun computeUsedBeforeForBlock(
             blockStmts: List<Statement>,

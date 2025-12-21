@@ -31,13 +31,13 @@ class ConstantFolderTest {
 
     @Test
     fun `folds simple integer addition`() {
-        // Программа:
+        // Program:
         // x = 2 + 3
         val expr = bin(litLong(2), TokenType.PLUS, litLong(3))
         val decl = varDecl("x", TypeNode.IntType, expr)
         val prog = program(decl)
 
-        // После constant folding:
+        // After constant folding:
         // x = 5
         val folded = ConstantFolder.fold(prog)
         assertEquals(1, folded.statements.size)
@@ -48,13 +48,13 @@ class ConstantFolderTest {
 
     @Test
     fun `promotion to double on non-integer division`() {
-        // Программа:
+        // Program:
         // a = 5 / 2
         val inner = bin(litLong(5), TokenType.SLASH, litLong(2))
         val decl = varDecl("a", TypeNode.FloatType, inner)
         val prog = program(decl)
 
-        // После constant folding:
+        // After constant folding:
         // a = 2.5
         val folded = ConstantFolder.fold(prog)
         val fd = folded.statements[0] as VarDecl
@@ -66,13 +66,13 @@ class ConstantFolderTest {
 
     @Test
     fun `integer division exact returns long`() {
-        // Программа:
+        // Program:
         // b = 4 / 2
         val inner = bin(litLong(4), TokenType.SLASH, litLong(2))
         val decl = varDecl("b", TypeNode.IntType, inner)
         val prog = program(decl)
 
-        // После constant folding:
+        // After constant folding:
         // b = 2   (Long)
         val folded = ConstantFolder.fold(prog)
         val fd = folded.statements[0] as VarDecl
@@ -83,13 +83,14 @@ class ConstantFolderTest {
 
     @Test
     fun `does not fold division by zero`() {
-        // Программа:
+        // Program:
         // x = 1 / 0
         val expr = bin(litLong(1), TokenType.SLASH, litLong(0))
         val decl = varDecl("x", TypeNode.IntType, expr)
         val prog = program(decl)
 
-        // После constant folding — деление на ноль не выполняется, выражение остаётся BinaryExpr
+        // After constant folding — division by zero is not evaluated,
+        // the expression remains a BinaryExpr
         val folded = ConstantFolder.fold(prog)
         val fd = folded.statements[0] as VarDecl
         assertTrue(fd.expression is BinaryExpr)
@@ -97,7 +98,7 @@ class ConstantFolderTest {
 
     @Test
     fun `modulo and double remainder folding`() {
-        // Программа:
+        // Program:
         // r1 = 5 % 2
         // r2 = 5.5 % 2
         val rem1 = bin(litLong(5), TokenType.PERCENT, litLong(2))
@@ -106,7 +107,7 @@ class ConstantFolderTest {
         val d2 = varDecl("r2", TypeNode.FloatType, rem2)
         val prog = program(d1, d2)
 
-        // После constant folding:
+        // After constant folding:
         // r1 = 1
         // r2 = 1.5
         val folded = ConstantFolder.fold(prog)
@@ -122,13 +123,13 @@ class ConstantFolderTest {
 
     @Test
     fun `folds unary and grouping`() {
-        // Программа:
+        // Program:
         // y = - (5)
         val expr = unary(TokenType.MINUS, group(litLong(5)))
         val decl = varDecl("y", TypeNode.IntType, expr)
         val folded = ConstantFolder.fold(program(decl))
 
-        // Результат:
+        // Result:
         // y = -5
         val fd = folded.statements[0] as VarDecl
         assertTrue(fd.expression is LiteralExpr)
@@ -137,19 +138,19 @@ class ConstantFolderTest {
 
     @Test
     fun `boolean short-circuit folding for OR and AND`() {
-        // Программа A:
+        // Program A:
         // b1 = true || someVar
         val orExpr = bin(litBool(true), TokenType.OR, varExpr("someVar"))
         val dOr = varDecl("b1", TypeNode.BoolType, orExpr)
 
-        // Программа B:
+        // Program B:
         // b2 = false && someVar
         val andExpr = bin(litBool(false), TokenType.AND, varExpr("someVar"))
         val dAnd = varDecl("b2", TypeNode.BoolType, andExpr)
 
         val folded = ConstantFolder.fold(program(dOr, dAnd))
 
-        // После folding:
+        // After folding:
         // b1 = true
         // b2 = false
         val f1 = folded.statements[0] as VarDecl
@@ -162,14 +163,14 @@ class ConstantFolderTest {
 
     @Test
     fun `comparison and equality folding`() {
-        // Программа:
+        // Program:
         // c1 = 2 < 3
         // c2 = 2 == 2.0
         val c1 = varDecl("c1", TypeNode.BoolType, bin(litLong(2), TokenType.LT, litLong(3)))
         val c2 = varDecl("c2", TypeNode.BoolType, bin(litLong(2), TokenType.EQ, litDouble(2.0)))
         val folded = ConstantFolder.fold(program(c1, c2))
 
-        // Результат:
+        // Result:
         // c1 = true
         // c2 = true
         val f1 = folded.statements[0] as VarDecl
@@ -182,13 +183,13 @@ class ConstantFolderTest {
 
     @Test
     fun `folds nested arithmetic to single literal`() {
-        // Программа:
+        // Program:
         // z = (2 + 3) * 4
         val nested = bin(bin(litLong(2), TokenType.PLUS, litLong(3)), TokenType.STAR, litLong(4))
         val decl = varDecl("z", TypeNode.IntType, nested)
         val folded = ConstantFolder.fold(program(decl))
 
-        // Результат:
+        // Result:
         // z = 20
         val fd = folded.statements[0] as VarDecl
         assertTrue(fd.expression is LiteralExpr)
@@ -197,7 +198,7 @@ class ConstantFolderTest {
 
     @Test
     fun `array init size folding and array access index folding`() {
-        // Программа:
+        // Program:
         // arr = int[1 + 2]
         // v = arr[1 + 2]
         val arrInit = arrayInit(TypeNode.IntType, bin(litLong(1), TokenType.PLUS, litLong(2)))
@@ -207,7 +208,7 @@ class ConstantFolderTest {
 
         val folded = ConstantFolder.fold(program(darr, dval))
 
-        // Результат:
+        // Result:
         // arr = int[3]
         // v = arr[3]
         val fa = folded.statements[0] as VarDecl
@@ -223,7 +224,7 @@ class ConstantFolderTest {
 
     @Test
     fun `call arguments and assign value folding`() {
-        // Программа:
+        // Program:
         // r = f(1 + 2)
         // arr[1 + 1] = 7
         val callExpr = call("f", listOf(bin(litLong(1), TokenType.PLUS, litLong(2))))
@@ -234,9 +235,9 @@ class ConstantFolderTest {
 
         val folded = ConstantFolder.fold(program(dcall, exprStmt(callExpr), assign))
 
-        // Результат:
+        // Result:
         // r = f(3)
-        // (вызов f(...) не вычисляется, только аргументы сворачиваются)
+        // (the call to f(...) is not evaluated, only arguments are folded)
         // arr[2] = 7
         val dr = folded.statements[0] as VarDecl
         val callFolded = dr.expression as CallExpr
@@ -253,15 +254,15 @@ class ConstantFolderTest {
 
     @Test
     fun `if folding to then or else branch`() {
-        // Программа A:
+        // Program A:
         // if (true) { x = 1; } else { x = 0; }
         val thenS = exprStmt(AssignExpr(varExpr("x"), litLong(1), p))
         val elseS = exprStmt(AssignExpr(varExpr("x"), litLong(0), p))
         val ifTrue = IfStmt(litBool(true), block(thenS), block(elseS))
         val foldedTrue = ConstantFolder.fold(program(ifTrue))
 
-        // Результат A:
-        // { x = 1; }  (только then-ветвь)
+        // Result A:
+        // { x = 1; }  (only the then-branch)
         val st = foldedTrue.statements[0]
         assertTrue(st is BlockStmt)
         val b = st as BlockStmt
@@ -271,13 +272,13 @@ class ConstantFolderTest {
         assertTrue(assignedVal is LiteralExpr)
         assertEquals(1L, (assignedVal as LiteralExpr).value)
 
-        // Программа B:
+        // Program B:
         // if (false) { x = 1; } else { x = 0; }
         val ifFalse = IfStmt(litBool(false), block(thenS), block(elseS))
         val foldedFalse = ConstantFolder.fold(program(ifFalse))
 
-        // Результат B:
-        // { x = 0; }  (только else-ветвь)
+        // Result B:
+        // { x = 0; }  (only the else-branch)
         val st2 = foldedFalse.statements[0]
         assertTrue(st2 is BlockStmt)
         val b2 = st2 as BlockStmt
@@ -289,7 +290,7 @@ class ConstantFolderTest {
 
     @Test
     fun `for initializer, condition and increment folding`() {
-        // Программа:
+        // Program:
         // for (let i: int = 1 + 1; i < 10; i = i + (1 + 1)) { let x: int = 2 + 2; }
         val initDecl =
                 VarDecl("i", TypeNode.IntType, bin(litLong(1), TokenType.PLUS, litLong(1)), p)
@@ -310,10 +311,10 @@ class ConstantFolderTest {
 
         val folded = ConstantFolder.fold(program(forStmt))
 
-        // Результат:
-        // Инициализатор: let i = 2
-        // Инкремент: i = i + 2  (внутреннее 1+1 сведено к 2)
-        // Тело: let x = 4
+        // Result:
+        // Initializer: let i = 2
+        // Increment: i = i + 2  (inner 1+1 folded to 2)
+        // Body: let x = 4
         val f = folded.statements[0] as ForStmt
         assertTrue(f.initializer is ForVarInit)
         val initFolded = (f.initializer as ForVarInit).decl
@@ -322,7 +323,7 @@ class ConstantFolderTest {
 
         val foldedInc = f.increment
         assertNotNull(foldedInc)
-        // inc должен содержать LiteralExpr 2 вместо (1+1)
+        // inc must contain LiteralExpr 2 instead of (1+1)
         assertTrue(foldedInc is AssignExpr || foldedInc is BinaryExpr)
 
         val foldedBody = f.body.statements[0] as VarDecl
@@ -332,38 +333,38 @@ class ConstantFolderTest {
 
     @Test
     fun `function body folding`() {
-        // Программа:
+        // Program:
         // func foo() { let a: int = 1 + 2; }
         val innerDecl = varDecl("a", TypeNode.IntType, bin(litLong(1), TokenType.PLUS, litLong(2)))
         val fn = FunctionDecl("foo", emptyList(), TypeNode.VoidType, block(innerDecl), p)
         val folded = ConstantFolder.fold(program(fn))
 
-        // Результат:
+        // Result:
         // func foo() { let a: int = 3; }
         val ffn = folded.statements[0] as FunctionDecl
         val inner = ffn.body.statements[0] as VarDecl
         assertTrue(inner.expression is LiteralExpr)
         assertEquals(3L, (inner.expression as LiteralExpr).value)
     }
-    
+
     @Test
     fun `folds unary plus and logical not`() {
-        // Программа:
+        // Program:
         // a = +5
         val p1 = program(varDecl("a", TypeNode.IntType, unary(TokenType.PLUS, litLong(5))))
 
-        // После constant folding:
+        // After constant folding:
         // a = 5
         val f1 = ConstantFolder.fold(p1)
         val aDecl = f1.statements[0] as VarDecl
         assertTrue(aDecl.expression is LiteralExpr)
         assertEquals(5L, (aDecl.expression as LiteralExpr).value)
 
-        // Программа:
+        // Program:
         // b = !true
         val p2 = program(varDecl("b", TypeNode.BoolType, unary(TokenType.NOT, litBool(true))))
 
-        // После constant folding:
+        // After constant folding:
         // b = false
         val f2 = ConstantFolder.fold(p2)
         val bDecl = f2.statements[0] as VarDecl
@@ -373,11 +374,11 @@ class ConstantFolderTest {
 
     @Test
     fun `folds not equals operator`() {
-        // Программа:
+        // Program:
         // n = 3 != 4
         val prog = program(varDecl("n", TypeNode.BoolType, bin(litLong(3), TokenType.NE, litLong(4))))
 
-        // После constant folding:
+        // After constant folding:
         // n = true
         val folded = ConstantFolder.fold(prog)
         val decl = folded.statements[0] as VarDecl
@@ -387,12 +388,12 @@ class ConstantFolderTest {
 
     @Test
     fun `folds return statement value`() {
-        // Программа:
+        // Program:
         // return 1 + 2;
         val ret = ReturnStmt(bin(litLong(1), TokenType.PLUS, litLong(2)), p)
         val prog = program(ret)
 
-        // После constant folding:
+        // After constant folding:
         // return 3;
         val folded = ConstantFolder.fold(prog)
         val foldedRet = folded.statements[0] as ReturnStmt
@@ -403,12 +404,12 @@ class ConstantFolderTest {
 
     @Test
     fun `folds assign expression value for variable target`() {
-        // Программа:
+        // Program:
         // x = 1 + 1;
         val assign = exprStmt(AssignExpr(varExpr("x"), bin(litLong(1), TokenType.PLUS, litLong(1)), p))
         val prog = program(assign)
 
-        // После constant folding:
+        // After constant folding:
         // x = 2;
         val folded = ConstantFolder.fold(prog)
         val stmt = folded.statements[0] as ExprStmt
@@ -419,7 +420,7 @@ class ConstantFolderTest {
 
     @Test
     fun `folds mixed long and double arithmetic`() {
-        // Программа:
+        // Program:
         // a = 2.0 + 3
         val prog =
                 program(
@@ -430,7 +431,7 @@ class ConstantFolderTest {
                         )
                 )
 
-        // После constant folding:
+        // After constant folding:
         // a = 5.0
         val folded = ConstantFolder.fold(prog)
         val decl = folded.statements[0] as VarDecl
@@ -442,25 +443,25 @@ class ConstantFolderTest {
 
     @Test
     fun `double edge cases nan and negative zero`() {
-        // Программа:
+        // Program:
         // n = NaN == NaN
         val nan = litDouble(Double.NaN)
         val nanEq = program(varDecl("n", TypeNode.BoolType, bin(nan, TokenType.EQ, nan)))
 
-        // После constant folding:
-        // n = false   (NaN != NaN по IEEE)
+        // After constant folding:
+        // n = false   (NaN != NaN per IEEE)
         val foldedNan = ConstantFolder.fold(nanEq)
         val nDecl = foldedNan.statements[0] as VarDecl
         assertTrue(nDecl.expression is LiteralExpr)
         assertEquals(false, (nDecl.expression as LiteralExpr).value)
 
-        // Программа:
+        // Program:
         // z = -0.0 == 0.0
         val negZero = litDouble(-0.0)
         val posZero = litDouble(0.0)
         val zeroEq = program(varDecl("z", TypeNode.BoolType, bin(negZero, TokenType.EQ, posZero)))
 
-        // После constant folding:
+        // After constant folding:
         // z = true
         val foldedZero = ConstantFolder.fold(zeroEq)
         val zDecl = foldedZero.statements[0] as VarDecl
@@ -470,12 +471,12 @@ class ConstantFolderTest {
 
     @Test
     fun `grouping folds to literal`() {
-        // Программа:
+        // Program:
         // x = (7)
         val grp = GroupingExpr(litLong(7), p)
         val prog = program(varDecl("x", TypeNode.IntType, grp))
 
-        // После constant folding:
+        // After constant folding:
         // x = 7
         val folded = ConstantFolder.fold(prog)
         val decl = folded.statements[0] as VarDecl

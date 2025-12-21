@@ -5,23 +5,24 @@ import com.compiler.lexer.TokenType
 import com.compiler.parser.ast.*
 
 /**
- * Выполняет проход оптимизации constant folding по AST.
+ * Performs a constant folding optimization pass over the AST.
  *
- * Реализует иммутабельный пост-обход дерева и возвращает новый [Program], в котором подставлены
- * вычисленные на этапе компиляции литералы.
+ * Implements an immutable post-order traversal of the tree and returns a new [Program] in which
+ * literals computed at compile time are substituted.
  *
- * Поддерживается свёртка булевых и числовых (Long, Double) выражений, унарных операций, упрощение
- * ветвления [IfStmt] с константным условием, свёртка аргументов вызовов и индексов массивов.
+ * Supports folding of boolean and numeric (Long, Double) expressions, unary operations,
+ * simplification of [IfStmt] branching with constant conditions, folding of call arguments and
+ * array indices.
  *
- * Деление и взятие остатка при делении на ноль не выполняются во время свёртки.
+ * Division and modulo by zero are not evaluated during folding.
  */
 object ConstantFolder {
 
     /**
-     * Запускает оптимизацию constant folding для корневого узла программы.
+     * Runs the constant folding optimization for the program root node.
      *
-     * @param program исходный AST программы
-     * @return новый [Program] с применённой оптимизацией
+     * @param program original program AST
+     * @return new [Program] with applied optimization
      */
     fun fold(program: Program): Program {
         val folded = program.statements.map { foldStatement(it) }
@@ -29,10 +30,10 @@ object ConstantFolder {
     }
 
     /**
-     * Обрабатывает узел-оператор и возвращает его свернутую версию.
+     * Processes a statement node and returns its folded version.
      *
-     * @param stmt входной оператор
-     * @return свернутый оператор
+     * @param stmt input statement
+     * @return folded statement
      */
     private fun foldStatement(stmt: Statement): Statement =
             when (stmt) {
@@ -46,10 +47,10 @@ object ConstantFolder {
             }
 
     /**
-     * Обрабатывает блок операторов.
+     * Processes a block of statements.
      *
-     * @param block входной блок
-     * @return новый [BlockStmt] с преобразованными операторами
+     * @param block input block
+     * @return new [BlockStmt] with transformed statements
      */
     private fun foldBlock(block: BlockStmt): BlockStmt {
         val foldedStmts = block.statements.map { foldStatement(it) }
@@ -57,10 +58,10 @@ object ConstantFolder {
     }
 
     /**
-     * Упрощает условный оператор, если условие является константой.
+     * Simplifies a conditional statement if the condition is a constant.
      *
-     * @param ifStmt входной [IfStmt]
-     * @return заменённый оператор: тогда-ветвь, иначе-ветвь или исходный if с свернутыми частями
+     * @param ifStmt input [IfStmt]
+     * @return replaced statement: then-branch, else-branch, or original if with folded parts
      */
     private fun foldIf(ifStmt: IfStmt): Statement {
         val condF = foldExpression(ifStmt.condition)
@@ -77,10 +78,10 @@ object ConstantFolder {
     }
 
     /**
-     * Обрабатывает оператор цикла for и его составляющие.
+     * Processes a for-loop statement and its components.
      *
-     * @param forStmt входной [ForStmt]
-     * @return новый [ForStmt] с преобразованными частями
+     * @param forStmt input [ForStmt]
+     * @return new [ForStmt] with transformed parts
      */
     private fun foldFor(forStmt: ForStmt): ForStmt {
         val initF: ForInitializer =
@@ -101,10 +102,10 @@ object ConstantFolder {
     }
 
     /**
-     * Обрабатывает выражение и возвращает его свернутую версию, если возможно.
+     * Processes an expression and returns its folded version if possible.
      *
-     * @param expr входное выражение
-     * @return свернутое выражение или исходное (с обработанными дочерними узлами)
+     * @param expr input expression
+     * @return folded expression or original one (with processed children)
      */
     private fun foldExpression(expr: Expression): Expression =
             when (expr) {
@@ -138,10 +139,10 @@ object ConstantFolder {
             }
 
     /**
-     * Обрабатывает унарное выражение и выполняет вычисление при наличии литерала.
+     * Processes a unary expression and evaluates it if it contains a literal.
      *
-     * @param un входной [UnaryExpr]
-     * @return вычисленное [LiteralExpr] или новый [UnaryExpr] с свернутым операндом
+     * @param un input [UnaryExpr]
+     * @return computed [LiteralExpr] or new [UnaryExpr] with folded operand
      */
     private fun foldUnary(un: UnaryExpr): Expression {
         val rightF = foldExpression(un.right)
@@ -170,11 +171,11 @@ object ConstantFolder {
     }
 
     /**
-     * Обрабатывает бинарное выражение, пытаясь выполнить арифметику/логические операции на
-     * константах.
+     * Processes a binary expression, attempting to evaluate arithmetic/logical operations on
+     * constants.
      *
-     * @param bin входной [BinaryExpr]
-     * @return вычисленное [LiteralExpr] либо новый [BinaryExpr] с свернутыми операндами
+     * @param bin input [BinaryExpr]
+     * @return computed [LiteralExpr] or new [BinaryExpr] with folded operands
      */
     private fun foldBinary(bin: BinaryExpr): Expression {
         val leftF = foldExpression(bin.left)
@@ -231,11 +232,11 @@ object ConstantFolder {
     }
 
     /**
-     * Сравнение чисел с учётом приведения типов.
+     * Numeric equality comparison with type coercion.
      *
-     * @param a левое значение (Long или Double)
-     * @param b правое значение (Long или Double)
-     * @return true, если значения равны по числовому значению
+     * @param a left value (Long or Double)
+     * @param b right value (Long or Double)
+     * @return true if values are numerically equal
      */
     private fun numericEq(a: Any, b: Any): Boolean {
         val (ad, bd) = toDoublePair(a, b)
@@ -243,11 +244,11 @@ object ConstantFolder {
     }
 
     /**
-     * Числовое сравнение с приведением к Double.
+     * Numeric comparison with conversion to Double.
      *
-     * @param a левое значение (Long или Double)
-     * @param b правое значение (Long или Double)
-     * @return отрицательное, ноль или положительное значение как в [Double.compareTo]
+     * @param a left value (Long or Double)
+     * @param b right value (Long or Double)
+     * @return negative, zero, or positive as in [Double.compareTo]
      */
     private fun numericCompare(a: Any, b: Any): Int {
         val (ad, bd) = toDoublePair(a, b)
@@ -255,12 +256,12 @@ object ConstantFolder {
     }
 
     /**
-     * Сложение с возвращением [LiteralExpr] соответствующего типа.
+     * Addition returning a [LiteralExpr] of the appropriate type.
      *
-     * @param a левый аргумент
-     * @param b правый аргумент
-     * @param pos позиция результата
-     * @return [LiteralExpr] с Long если оба Long, иначе Double
+     * @param a left operand
+     * @param b right operand
+     * @param pos result position
+     * @return [LiteralExpr] with Long if both are Long, otherwise Double
      */
     private fun numericPlus(a: Any, b: Any, pos: SourcePos): LiteralExpr {
         return when {
@@ -270,12 +271,12 @@ object ConstantFolder {
     }
 
     /**
-     * Вычитание с возвращением [LiteralExpr] соответствующего типа.
+     * Subtraction returning a [LiteralExpr] of the appropriate type.
      *
-     * @param a левый аргумент
-     * @param b правый аргумент
-     * @param pos позиция результата
-     * @return [LiteralExpr] с Long если оба Long, иначе Double
+     * @param a left operand
+     * @param b right operand
+     * @param pos result position
+     * @return [LiteralExpr] with Long if both are Long, otherwise Double
      */
     private fun numericMinus(a: Any, b: Any, pos: SourcePos): LiteralExpr {
         return when {
@@ -285,12 +286,12 @@ object ConstantFolder {
     }
 
     /**
-     * Умножение с возвращением [LiteralExpr] соответствующего типа.
+     * Multiplication returning a [LiteralExpr] of the appropriate type.
      *
-     * @param a левый аргумент
-     * @param b правый аргумент
-     * @param pos позиция результата
-     * @return [LiteralExpr] с Long если оба Long, иначе Double
+     * @param a left operand
+     * @param b right operand
+     * @param pos result position
+     * @return [LiteralExpr] with Long if both are Long, otherwise Double
      */
     private fun numericMul(a: Any, b: Any, pos: SourcePos): LiteralExpr {
         return when {
@@ -300,13 +301,17 @@ object ConstantFolder {
     }
 
     /**
-     * Деление с защитой от деления на ноль.
+     * Division with protection against division by zero.
      *
-     * @param a левый аргумент
-     * @param b правый аргумент
-     * @param pos позиция результата
-     * @return [LiteralExpr] с Long когда оба Long и без остатка, иначе Double
-     * @throws ArithmeticException если деление на ноль
+     * @param a left operand
+     * @param b right operand
+     * @param pos result position
+     * @return [LiteralExpr] with Long when both are Long and divisible without remainder,
+     * ```
+     *         otherwise Double
+     * @throws ArithmeticException
+     * ```
+     * if division by zero occurs
      */
     private fun numericDiv(a: Any, b: Any, pos: SourcePos): LiteralExpr {
         if (isZero(b)) throw ArithmeticException("division by zero")
@@ -320,13 +325,13 @@ object ConstantFolder {
     }
 
     /**
-     * Остаток от деления с защитой от деления на ноль.
+     * Modulo operation with protection against division by zero.
      *
-     * @param a левый аргумент
-     * @param b правый аргумент
-     * @param pos позиция результата
-     * @return [LiteralExpr] с Long если оба Long, иначе Double
-     * @throws ArithmeticException если деление на ноль
+     * @param a left operand
+     * @param b right operand
+     * @param pos result position
+     * @return [LiteralExpr] with Long if both are Long, otherwise Double
+     * @throws ArithmeticException if division by zero occurs
      */
     private fun numericRem(a: Any, b: Any, pos: SourcePos): LiteralExpr {
         if (isZero(b)) throw ArithmeticException("modulo by zero")
@@ -337,20 +342,20 @@ object ConstantFolder {
     }
 
     /**
-     * Приведение пары значений к Double.
+     * Converts a pair of values to Double.
      *
-     * @param a левое значение
-     * @param b правое значение
-     * @return пара значений в Double
+     * @param a left value
+     * @param b right value
+     * @return pair of Double values
      */
     private fun toDoublePair(a: Any, b: Any): Pair<Double, Double> = Pair(toDouble(a), toDouble(b))
 
     /**
-     * Приведение значения Long/Double к Double.
+     * Converts a Long/Double value to Double.
      *
-     * @param x входное значение
-     * @return значение в Double
-     * @throws IllegalArgumentException если тип не числовой
+     * @param x input value
+     * @return value as Double
+     * @throws IllegalArgumentException if the value is not numeric
      */
     private fun toDouble(x: Any): Double =
             when (x) {
@@ -360,10 +365,10 @@ object ConstantFolder {
             }
 
     /**
-     * Проверяет, является ли значение нулём.
+     * Checks whether a value is zero.
      *
-     * @param x входное значение
-     * @return true для 0L или 0.0, иначе false
+     * @param x input value
+     * @return true for 0L or 0.0, false otherwise
      */
     private fun isZero(x: Any): Boolean =
             when (x) {
