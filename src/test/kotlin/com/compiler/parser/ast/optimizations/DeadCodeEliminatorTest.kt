@@ -40,7 +40,7 @@ class DeadCodeEliminatorTest {
         //   x = 1;
         //   return 2;
         // }
-        val opt = DeadCodeEliminator.eliminate(prog)
+        val opt = DeadCodeEliminator.apply(prog)
         val blk = opt.statements[0] as BlockStmt
         assertEquals(2, blk.statements.size)
         assertTrue(blk.statements[1] is ReturnStmt)
@@ -54,7 +54,7 @@ class DeadCodeEliminatorTest {
 
         // After dead code elimination:
         // (empty)
-        val opt = DeadCodeEliminator.eliminate(prog)
+        val opt = DeadCodeEliminator.apply(prog)
         assertTrue(opt.statements.isEmpty())
     }
 
@@ -66,7 +66,7 @@ class DeadCodeEliminatorTest {
 
         // After dead code elimination:
         // f();
-        val opt = DeadCodeEliminator.eliminate(prog)
+        val opt = DeadCodeEliminator.apply(prog)
         assertEquals(1, opt.statements.size)
         assertTrue(opt.statements[0] is ExprStmt)
         assertTrue((opt.statements[0] as ExprStmt).expr is CallExpr)
@@ -82,7 +82,7 @@ class DeadCodeEliminatorTest {
         // After dead code elimination:
         // let a: int = 1;
         // a;
-        val opt = DeadCodeEliminator.eliminate(prog)
+        val opt = DeadCodeEliminator.apply(prog)
         assertEquals(2, opt.statements.size)
         assertTrue(opt.statements[0] is VarDecl)
     }
@@ -95,7 +95,7 @@ class DeadCodeEliminatorTest {
 
         // After dead code elimination:
         // (empty)
-        val opt = DeadCodeEliminator.eliminate(prog)
+        val opt = DeadCodeEliminator.apply(prog)
         assertTrue(opt.statements.isEmpty())
     }
 
@@ -107,7 +107,7 @@ class DeadCodeEliminatorTest {
 
         // After dead code elimination:
         // if (f()) { } else { }
-        val opt = DeadCodeEliminator.eliminate(prog)
+        val opt = DeadCodeEliminator.apply(prog)
         assertEquals(1, opt.statements.size)
         assertTrue(opt.statements[0] is IfStmt)
     }
@@ -120,7 +120,7 @@ class DeadCodeEliminatorTest {
 
         // After dead code elimination:
         // (empty)
-        val opt = DeadCodeEliminator.eliminate(prog)
+        val opt = DeadCodeEliminator.apply(prog)
         assertTrue(opt.statements.isEmpty())
     }
 
@@ -132,7 +132,7 @@ class DeadCodeEliminatorTest {
 
         // After dead code elimination:
         // for (f(); ; ) { }
-        val opt = DeadCodeEliminator.eliminate(prog)
+        val opt = DeadCodeEliminator.apply(prog)
         assertEquals(1, opt.statements.size)
         assertTrue(opt.statements[0] is ForStmt)
     }
@@ -152,7 +152,7 @@ class DeadCodeEliminatorTest {
 
         // After dead code elimination:
         // func foo() { }
-        val opt = DeadCodeEliminator.eliminate(program(fn))
+        val opt = DeadCodeEliminator.apply(program(fn))
         val f = opt.statements[0] as FunctionDecl
         assertTrue(f.body.statements.isEmpty())
     }
@@ -165,7 +165,7 @@ class DeadCodeEliminatorTest {
 
         // After dead code elimination:
         // (empty)
-        val opt = DeadCodeEliminator.eliminate(prog)
+        val opt = DeadCodeEliminator.apply(prog)
         assertTrue(opt.statements.isEmpty())
     }
 
@@ -190,7 +190,7 @@ class DeadCodeEliminatorTest {
         // let b = f();
         // b;
         // return 0;
-        val opt = DeadCodeEliminator.eliminate(prog)
+        val opt = DeadCodeEliminator.apply(prog)
         assertEquals(3, opt.statements.size)
         assertTrue(opt.statements[2] is ReturnStmt)
     }

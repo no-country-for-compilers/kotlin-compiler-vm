@@ -16,7 +16,9 @@ import com.compiler.parser.ast.*
  *
  * Division and modulo by zero are not evaluated during folding.
  */
-object ConstantFolder {
+object ConstantFolder : AstOptimization {
+
+    override val name = "Constant Folding"
 
     /**
      * Runs the constant folding optimization for the program root node.
@@ -24,7 +26,7 @@ object ConstantFolder {
      * @param program original program AST
      * @return new [Program] with applied optimization
      */
-    fun fold(program: Program): Program {
+    override fun apply(program: Program): Program {
         val folded = program.statements.map { foldStatement(it) }
         return Program(folded)
     }

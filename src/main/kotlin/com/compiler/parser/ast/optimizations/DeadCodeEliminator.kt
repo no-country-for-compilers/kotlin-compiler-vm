@@ -17,10 +17,12 @@ import com.compiler.parser.ast.*
  * - if there are no side effects, unused VarDecls are removed; if the initializer has side effects,
  * VarDecl is transformed into ExprStmt(init).
  */
-object DeadCodeEliminator {
+object DeadCodeEliminator : AstOptimization {
+
+    override val name = "Dead Code Elimination"
 
     /** Applies the optimization to the program root and returns a new Program. */
-    fun eliminate(program: Program): Program {
+    override fun apply(program: Program): Program {
         val noUnreach = program.statements.mapNotNull { removeUnreachableTopLevel(it) }
         val optimizedTop = processBlockStatements(noUnreach)
         return Program(optimizedTop)

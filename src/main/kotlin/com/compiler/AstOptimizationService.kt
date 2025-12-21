@@ -9,7 +9,20 @@ import kotlin.io.print
 import kotlin.io.println
 
 object AstOptimizationService {
-    fun run(filePath: String): Program? {
+
+    private val optimizationMap =
+        mapOf(
+                OptimizationType.CF to ConstantFolder,
+                OptimizationType.DCE to DeadCodeEliminator
+        )
+
+    fun run(
+        filePath: String,
+        optimizations: List<OptimizationType> = listOf(
+            OptimizationType.CF,
+            OptimizationType.DCE
+        )
+    ): Program? {
         val file = File(filePath)
 
         if (!file.exists()) {
@@ -18,23 +31,22 @@ object AstOptimizationService {
         }
 
         return try {
-            val program = ParserService.run(filePath) ?: return null
-
-            println()
-            
-            println("=== Constant Folding ===")
-            val optimized_cf = ConstantFolder.fold(program)
-            println("Constant Folding completed successfully.")
-
-            println("=== Dead Code Elimination ===")
-            val optimized_dce = DeadCodeEliminator.eliminate(optimized_cf)
-            println("Dead Code Elimination completed successfully.")
+            var program = ParserService.run(filePath) ?: return null
 
             println()
 
-            Printer.printOptimized(optimized_dce)
+            for (optType in optimizations) {
+                val opt = optimizationMap[optType] ?: continue
+                println("=== ${opt.name} ===")
+                program = opt.apply(program)
+                println("${opt.name} completed successfully.")
+            }
 
-            optimized_dce
+            println()
+
+            Printer.printOptimized(program)
+
+            program
         } catch (e: Exception) {
             println("Unexpected error:")
             println("  ${e.message}")

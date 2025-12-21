@@ -39,7 +39,7 @@ class ConstantFolderTest {
 
         // After constant folding:
         // x = 5
-        val folded = ConstantFolder.fold(prog)
+        val folded = ConstantFolder.apply(prog)
         assertEquals(1, folded.statements.size)
         val fd = folded.statements[0] as VarDecl
         assertTrue(fd.expression is LiteralExpr)
@@ -56,7 +56,7 @@ class ConstantFolderTest {
 
         // After constant folding:
         // a = 2.5
-        val folded = ConstantFolder.fold(prog)
+        val folded = ConstantFolder.apply(prog)
         val fd = folded.statements[0] as VarDecl
         assertTrue(fd.expression is LiteralExpr)
         val value = (fd.expression as LiteralExpr).value
@@ -74,7 +74,7 @@ class ConstantFolderTest {
 
         // After constant folding:
         // b = 2   (Long)
-        val folded = ConstantFolder.fold(prog)
+        val folded = ConstantFolder.apply(prog)
         val fd = folded.statements[0] as VarDecl
         assertTrue(fd.expression is LiteralExpr)
         assertTrue((fd.expression as LiteralExpr).value is Long)
@@ -82,7 +82,7 @@ class ConstantFolderTest {
     }
 
     @Test
-    fun `does not fold division by zero`() {
+    fun `does not apply division by zero`() {
         // Program:
         // x = 1 / 0
         val expr = bin(litLong(1), TokenType.SLASH, litLong(0))
@@ -91,7 +91,7 @@ class ConstantFolderTest {
 
         // After constant folding — division by zero is not evaluated,
         // the expression remains a BinaryExpr
-        val folded = ConstantFolder.fold(prog)
+        val folded = ConstantFolder.apply(prog)
         val fd = folded.statements[0] as VarDecl
         assertTrue(fd.expression is BinaryExpr)
     }
@@ -110,7 +110,7 @@ class ConstantFolderTest {
         // After constant folding:
         // r1 = 1
         // r2 = 1.5
-        val folded = ConstantFolder.fold(prog)
+        val folded = ConstantFolder.apply(prog)
         val f1 = folded.statements[0] as VarDecl
         val f2 = folded.statements[1] as VarDecl
 
@@ -127,7 +127,7 @@ class ConstantFolderTest {
         // y = - (5)
         val expr = unary(TokenType.MINUS, group(litLong(5)))
         val decl = varDecl("y", TypeNode.IntType, expr)
-        val folded = ConstantFolder.fold(program(decl))
+        val folded = ConstantFolder.apply(program(decl))
 
         // Result:
         // y = -5
@@ -148,7 +148,7 @@ class ConstantFolderTest {
         val andExpr = bin(litBool(false), TokenType.AND, varExpr("someVar"))
         val dAnd = varDecl("b2", TypeNode.BoolType, andExpr)
 
-        val folded = ConstantFolder.fold(program(dOr, dAnd))
+        val folded = ConstantFolder.apply(program(dOr, dAnd))
 
         // After folding:
         // b1 = true
@@ -168,7 +168,7 @@ class ConstantFolderTest {
         // c2 = 2 == 2.0
         val c1 = varDecl("c1", TypeNode.BoolType, bin(litLong(2), TokenType.LT, litLong(3)))
         val c2 = varDecl("c2", TypeNode.BoolType, bin(litLong(2), TokenType.EQ, litDouble(2.0)))
-        val folded = ConstantFolder.fold(program(c1, c2))
+        val folded = ConstantFolder.apply(program(c1, c2))
 
         // Result:
         // c1 = true
@@ -187,7 +187,7 @@ class ConstantFolderTest {
         // z = (2 + 3) * 4
         val nested = bin(bin(litLong(2), TokenType.PLUS, litLong(3)), TokenType.STAR, litLong(4))
         val decl = varDecl("z", TypeNode.IntType, nested)
-        val folded = ConstantFolder.fold(program(decl))
+        val folded = ConstantFolder.apply(program(decl))
 
         // Result:
         // z = 20
@@ -206,7 +206,7 @@ class ConstantFolderTest {
         val access = arrayAccess(varExpr("arr"), bin(litLong(1), TokenType.PLUS, litLong(2)))
         val dval = varDecl("v", TypeNode.IntType, access)
 
-        val folded = ConstantFolder.fold(program(darr, dval))
+        val folded = ConstantFolder.apply(program(darr, dval))
 
         // Result:
         // arr = int[3]
@@ -233,7 +233,7 @@ class ConstantFolderTest {
         val target = arrayAccess(varExpr("arr"), bin(litLong(1), TokenType.PLUS, litLong(1)))
         val assign = exprStmt(AssignExpr(target, litLong(7), p))
 
-        val folded = ConstantFolder.fold(program(dcall, exprStmt(callExpr), assign))
+        val folded = ConstantFolder.apply(program(dcall, exprStmt(callExpr), assign))
 
         // Result:
         // r = f(3)
@@ -259,7 +259,7 @@ class ConstantFolderTest {
         val thenS = exprStmt(AssignExpr(varExpr("x"), litLong(1), p))
         val elseS = exprStmt(AssignExpr(varExpr("x"), litLong(0), p))
         val ifTrue = IfStmt(litBool(true), block(thenS), block(elseS))
-        val foldedTrue = ConstantFolder.fold(program(ifTrue))
+        val foldedTrue = ConstantFolder.apply(program(ifTrue))
 
         // Result A:
         // { x = 1; }  (only the then-branch)
@@ -275,7 +275,7 @@ class ConstantFolderTest {
         // Program B:
         // if (false) { x = 1; } else { x = 0; }
         val ifFalse = IfStmt(litBool(false), block(thenS), block(elseS))
-        val foldedFalse = ConstantFolder.fold(program(ifFalse))
+        val foldedFalse = ConstantFolder.apply(program(ifFalse))
 
         // Result B:
         // { x = 0; }  (only the else-branch)
@@ -309,7 +309,7 @@ class ConstantFolderTest {
         val bodyDecl = varDecl("x", TypeNode.IntType, bin(litLong(2), TokenType.PLUS, litLong(2)))
         val forStmt = ForStmt(forInit, cond, inc, block(bodyDecl))
 
-        val folded = ConstantFolder.fold(program(forStmt))
+        val folded = ConstantFolder.apply(program(forStmt))
 
         // Result:
         // Initializer: let i = 2
@@ -337,7 +337,7 @@ class ConstantFolderTest {
         // func foo() { let a: int = 1 + 2; }
         val innerDecl = varDecl("a", TypeNode.IntType, bin(litLong(1), TokenType.PLUS, litLong(2)))
         val fn = FunctionDecl("foo", emptyList(), TypeNode.VoidType, block(innerDecl), p)
-        val folded = ConstantFolder.fold(program(fn))
+        val folded = ConstantFolder.apply(program(fn))
 
         // Result:
         // func foo() { let a: int = 3; }
@@ -355,7 +355,7 @@ class ConstantFolderTest {
 
         // After constant folding:
         // a = 5
-        val f1 = ConstantFolder.fold(p1)
+        val f1 = ConstantFolder.apply(p1)
         val aDecl = f1.statements[0] as VarDecl
         assertTrue(aDecl.expression is LiteralExpr)
         assertEquals(5L, (aDecl.expression as LiteralExpr).value)
@@ -366,7 +366,7 @@ class ConstantFolderTest {
 
         // After constant folding:
         // b = false
-        val f2 = ConstantFolder.fold(p2)
+        val f2 = ConstantFolder.apply(p2)
         val bDecl = f2.statements[0] as VarDecl
         assertTrue(bDecl.expression is LiteralExpr)
         assertEquals(false, (bDecl.expression as LiteralExpr).value)
@@ -380,7 +380,7 @@ class ConstantFolderTest {
 
         // After constant folding:
         // n = true
-        val folded = ConstantFolder.fold(prog)
+        val folded = ConstantFolder.apply(prog)
         val decl = folded.statements[0] as VarDecl
         assertTrue(decl.expression is LiteralExpr)
         assertEquals(true, (decl.expression as LiteralExpr).value)
@@ -395,7 +395,7 @@ class ConstantFolderTest {
 
         // After constant folding:
         // return 3;
-        val folded = ConstantFolder.fold(prog)
+        val folded = ConstantFolder.apply(prog)
         val foldedRet = folded.statements[0] as ReturnStmt
         assertNotNull(foldedRet.value)
         assertTrue(foldedRet.value is LiteralExpr)
@@ -411,7 +411,7 @@ class ConstantFolderTest {
 
         // After constant folding:
         // x = 2;
-        val folded = ConstantFolder.fold(prog)
+        val folded = ConstantFolder.apply(prog)
         val stmt = folded.statements[0] as ExprStmt
         val asg = stmt.expr as AssignExpr
         assertTrue(asg.value is LiteralExpr)
@@ -433,7 +433,7 @@ class ConstantFolderTest {
 
         // After constant folding:
         // a = 5.0
-        val folded = ConstantFolder.fold(prog)
+        val folded = ConstantFolder.apply(prog)
         val decl = folded.statements[0] as VarDecl
         assertTrue(decl.expression is LiteralExpr)
         val v = (decl.expression as LiteralExpr).value
@@ -450,7 +450,7 @@ class ConstantFolderTest {
 
         // After constant folding:
         // n = false   (NaN != NaN per IEEE)
-        val foldedNan = ConstantFolder.fold(nanEq)
+        val foldedNan = ConstantFolder.apply(nanEq)
         val nDecl = foldedNan.statements[0] as VarDecl
         assertTrue(nDecl.expression is LiteralExpr)
         assertEquals(false, (nDecl.expression as LiteralExpr).value)
@@ -463,7 +463,7 @@ class ConstantFolderTest {
 
         // After constant folding:
         // z = true
-        val foldedZero = ConstantFolder.fold(zeroEq)
+        val foldedZero = ConstantFolder.apply(zeroEq)
         val zDecl = foldedZero.statements[0] as VarDecl
         assertTrue(zDecl.expression is LiteralExpr)
         assertEquals(true, (zDecl.expression as LiteralExpr).value)
@@ -478,7 +478,7 @@ class ConstantFolderTest {
 
         // After constant folding:
         // x = 7
-        val folded = ConstantFolder.fold(prog)
+        val folded = ConstantFolder.apply(prog)
         val decl = folded.statements[0] as VarDecl
         assertTrue(decl.expression is LiteralExpr)
         assertEquals(7L, (decl.expression as LiteralExpr).value)

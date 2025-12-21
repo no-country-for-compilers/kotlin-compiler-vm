@@ -1,6 +1,7 @@
 import com.compiler.lexer.Lexer
 import com.compiler.parser.Parser
 import com.compiler.parser.ast.optimizations.ConstantFolder
+import com.compiler.parser.ast.optimizations.DeadCodeEliminator
 import com.compiler.semantic.DefaultSemanticAnalyzer
 import com.compiler.bytecode.BytecodeGenerator
 import com.compiler.vm.VirtualMachine
@@ -23,7 +24,8 @@ class E2ETest {
         var program = parser.parse()
         assertTrue(program.statements.isNotEmpty(), "Program should contain statements")
 
-        program = ConstantFolder.fold(program)
+        program = ConstantFolder.apply(program)
+        program = DeadCodeEliminator.apply(program)
         
         val analyzer = DefaultSemanticAnalyzer()
         val semanticResult = analyzer.analyze(program)

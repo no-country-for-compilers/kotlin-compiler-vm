@@ -19,8 +19,11 @@ fun main(args: Array<String>) {
         args[0] == "--parse" && args.size >= 2 -> {
             ParserService.run(args[1])
         }
-        args[0] == "--ast-optimize" && args.size >= 2 -> {
-            AstOptimizationService.run(args[1])
+        args[0] == "--cf" && args.size >= 2 -> {
+            AstOptimizationService.run(args[1], listOf(OptimizationType.CF))
+        }
+        args[0] == "--dce" && args.size >= 2 -> {
+            AstOptimizationService.run(args[1], listOf(OptimizationType.DCE))
         }
         args[0] == "--semantic" && args.size >= 2 -> {
             SemanticService.run(args[1])
@@ -40,7 +43,8 @@ fun main(args: Array<String>) {
             println("Use --lex <file> to tokenize a source file.")
             println("Use --parse <file> to tokenize + parse and print AST.")
             println("Use --semantic <file> to perform semantic analysis.")
-            println("Use --ast-optimize <file> to perform AST optimizations.")
+            println("Use --cf <file> to perform constant folding optimization.")
+            println("Use --dce <file> to perform dead code elimination optimization.")
             println("Use --run <file> to compile and run on VM.")
         }
     }
