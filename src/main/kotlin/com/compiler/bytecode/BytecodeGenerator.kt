@@ -24,6 +24,36 @@ class BytecodeGenerator(
     // Function information for call resolution
     private val functionIndices = mutableMapOf<String, Int>()
     
+    // Operator to opcode mapping
+    private data class OpcodePair(val intOp: Byte, val floatOp: Byte)
+    
+    private val arithmeticOps = mapOf(
+        TokenType.PLUS to OpcodePair(Opcodes.ADD_INT, Opcodes.ADD_FLOAT),
+        TokenType.MINUS to OpcodePair(Opcodes.SUB_INT, Opcodes.SUB_FLOAT),
+        TokenType.STAR to OpcodePair(Opcodes.MUL_INT, Opcodes.MUL_FLOAT),
+        TokenType.SLASH to OpcodePair(Opcodes.DIV_INT, Opcodes.DIV_FLOAT)
+    )
+    
+    private val comparisonOps = mapOf(
+        TokenType.EQ to OpcodePair(Opcodes.EQ_INT, Opcodes.EQ_FLOAT),
+        TokenType.NE to OpcodePair(Opcodes.NE_INT, Opcodes.NE_FLOAT),
+        TokenType.LT to OpcodePair(Opcodes.LT_INT, Opcodes.LT_FLOAT),
+        TokenType.LE to OpcodePair(Opcodes.LE_INT, Opcodes.LE_FLOAT),
+        TokenType.GT to OpcodePair(Opcodes.GT_INT, Opcodes.GT_FLOAT),
+        TokenType.GE to OpcodePair(Opcodes.GE_INT, Opcodes.GE_FLOAT)
+    )
+    
+    private val builtinFunctions = mapOf(
+        "print" to Opcodes.PRINT,
+        "printArray" to Opcodes.PRINT_ARRAY
+    )
+    
+    private val arrayTypeToOpcode = mapOf(
+        TypeNode.IntType::class to Opcodes.NEW_ARRAY_INT,
+        TypeNode.FloatType::class to Opcodes.NEW_ARRAY_FLOAT,
+        TypeNode.BoolType::class to Opcodes.NEW_ARRAY_BOOL
+    )
+    
     // Current generation context
     private data class FunctionContext(
         val function: FunctionSymbol,
@@ -399,9 +429,9 @@ class BytecodeGenerator(
             
             is UnaryExpr -> {
                 generateExpression(expr.right)
-                val operandType = inferExpressionType(expr.right)
                 when (expr.operator) {
                     TokenType.MINUS -> {
+                        val operandType = inferExpressionType(expr.right)
                         when (operandType) {
                             Type.Int -> ctx.builder.emit(Opcodes.NEG_INT)
                             Type.Float -> ctx.builder.emit(Opcodes.NEG_FLOAT)
@@ -411,9 +441,7 @@ class BytecodeGenerator(
                     TokenType.PLUS -> {
                         // +x = x, do nothing
                     }
-                    TokenType.NOT -> {
-                        ctx.builder.emit(Opcodes.NOT)
-                    }
+                    TokenType.NOT -> ctx.builder.emit(Opcodes.NOT)
                     else -> throw IllegalArgumentException("Unsupported unary operator: ${expr.operator}")
                 }
             }
@@ -425,49 +453,24 @@ class BytecodeGenerator(
                 val leftType = inferExpressionType(expr.left)
                 val isFloat = leftType == Type.Float
                 
-                when (expr.operator) {
-                    TokenType.PLUS -> {
-                        if (isFloat) ctx.builder.emit(Opcodes.ADD_FLOAT) else ctx.builder.emit(Opcodes.ADD_INT)
-                    }
-                    TokenType.MINUS -> {
-                        if (isFloat) ctx.builder.emit(Opcodes.SUB_FLOAT) else ctx.builder.emit(Opcodes.SUB_INT)
-                    }
-                    TokenType.STAR -> {
-                        if (isFloat) ctx.builder.emit(Opcodes.MUL_FLOAT) else ctx.builder.emit(Opcodes.MUL_INT)
-                    }
-                    TokenType.SLASH -> {
-                        if (isFloat) ctx.builder.emit(Opcodes.DIV_FLOAT) else ctx.builder.emit(Opcodes.DIV_INT)
-                    }
-                    TokenType.PERCENT -> {
+                when {
+                    expr.operator == TokenType.PERCENT -> {
                         if (isFloat) {
                             throw IllegalArgumentException("Modulo operator % is not supported for float")
                         } else {
                             ctx.builder.emit(Opcodes.MOD_INT)
                         }
                     }
-                    
-                    TokenType.EQ -> {
-                        if (isFloat) ctx.builder.emit(Opcodes.EQ_FLOAT) else ctx.builder.emit(Opcodes.EQ_INT)
+                    expr.operator in arithmeticOps -> {
+                        val opcodes = arithmeticOps[expr.operator]!!
+                        ctx.builder.emit(if (isFloat) opcodes.floatOp else opcodes.intOp)
                     }
-                    TokenType.NE -> {
-                        if (isFloat) ctx.builder.emit(Opcodes.NE_FLOAT) else ctx.builder.emit(Opcodes.NE_INT)
+                    expr.operator in comparisonOps -> {
+                        val opcodes = comparisonOps[expr.operator]!!
+                        ctx.builder.emit(if (isFloat) opcodes.floatOp else opcodes.intOp)
                     }
-                    TokenType.LT -> {
-                        if (isFloat) ctx.builder.emit(Opcodes.LT_FLOAT) else ctx.builder.emit(Opcodes.LT_INT)
-                    }
-                    TokenType.LE -> {
-                        if (isFloat) ctx.builder.emit(Opcodes.LE_FLOAT) else ctx.builder.emit(Opcodes.LE_INT)
-                    }
-                    TokenType.GT -> {
-                        if (isFloat) ctx.builder.emit(Opcodes.GT_FLOAT) else ctx.builder.emit(Opcodes.GT_INT)
-                    }
-                    TokenType.GE -> {
-                        if (isFloat) ctx.builder.emit(Opcodes.GE_FLOAT) else ctx.builder.emit(Opcodes.GE_INT)
-                    }
-                    
-                    TokenType.AND -> ctx.builder.emit(Opcodes.AND)
-                    TokenType.OR -> ctx.builder.emit(Opcodes.OR)
-                    
+                    expr.operator == TokenType.AND -> ctx.builder.emit(Opcodes.AND)
+                    expr.operator == TokenType.OR -> ctx.builder.emit(Opcodes.OR)
                     else -> throw IllegalArgumentException("Unsupported binary operator: ${expr.operator}")
                 }
             }
@@ -497,23 +500,13 @@ class BytecodeGenerator(
                 }
                 
                 // Check if this is a built-in function
-                val fnSymbol = globalScope.resolveFunction(expr.name)
-                if (fnSymbol != null) {
-                    when (expr.name) {
-                        "print" -> {
-                            ctx.builder.emit(Opcodes.PRINT)
-                        }
-                        "printArray" -> {
-                            ctx.builder.emit(Opcodes.PRINT_ARRAY)
-                        }
-                        else -> {
-                            val fnIndex = functionIndices[expr.name]
-                                ?: throw IllegalStateException("Function ${expr.name} not found")
-                            ctx.builder.emit(Opcodes.CALL, fnIndex)
-                        }
-                    }
+                val builtinOpcode = builtinFunctions[expr.name]
+                if (builtinOpcode != null) {
+                    ctx.builder.emit(builtinOpcode)
                 } else {
-                    throw IllegalStateException("Function ${expr.name} not found")
+                    val fnIndex = functionIndices[expr.name]
+                        ?: throw IllegalStateException("Function ${expr.name} not found")
+                    ctx.builder.emit(Opcodes.CALL, fnIndex)
                 }
             }
             
@@ -525,12 +518,9 @@ class BytecodeGenerator(
             
             is ArrayInitExpr -> {
                 generateExpression(expr.size)
-                when (expr.elementType) {
-                    is TypeNode.IntType -> ctx.builder.emit(Opcodes.NEW_ARRAY_INT)
-                    is TypeNode.FloatType -> ctx.builder.emit(Opcodes.NEW_ARRAY_FLOAT)
-                    is TypeNode.BoolType -> ctx.builder.emit(Opcodes.NEW_ARRAY_BOOL)
-                    else -> throw IllegalArgumentException("Unsupported array element type: ${expr.elementType}")
-                }
+                val opcode = arrayTypeToOpcode[expr.elementType::class]
+                    ?: throw IllegalArgumentException("Unsupported array element type: ${expr.elementType}")
+                ctx.builder.emit(opcode)
             }
         }
     }

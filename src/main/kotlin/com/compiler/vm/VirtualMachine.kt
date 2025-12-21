@@ -226,9 +226,7 @@ class VirtualMachine(
     }
 
     private fun handlePop(): VMResult {
-        if (operandStack.size() == 0) {
-            return VMResult.STACK_UNDERFLOW
-        }
+        if (operandStack.size() == 0) return VMResult.STACK_UNDERFLOW
         operandStack.popDrop()
         return VMResult.SUCCESS
     }
@@ -239,13 +237,9 @@ class VirtualMachine(
         if (operand < 0 || operand >= frame.function.localsCount) {
             return VMResult.INVALID_LOCAL_INDEX
         }
-        try {
-            val value = frame.locals.getCopy(operand)
-            operandStack.pushCopy(value)
-            return VMResult.SUCCESS
-        } catch (e: Exception) {
-            return VMResult.INVALID_LOCAL_INDEX
-        }
+        val value = frame.locals.getCopy(operand)
+        operandStack.pushCopy(value)
+        return VMResult.SUCCESS
     }
 
     private fun handleStoreLocal(frame: CallFrame, operand: Int): VMResult {
@@ -260,486 +254,196 @@ class VirtualMachine(
         return VMResult.SUCCESS
     }
 
+    // ========== Helper functions for stack operations ==========
+    
+    private inline fun <reified T : Value> safePop(): T? {
+        if (operandStack.size() < 1) return null
+        val value = operandStack.popMove()
+        return if (value is T) value else {
+            operandStack.pushMove(value) // restore on type mismatch
+            null
+        }
+    }
+    
+    private inline fun <reified T1 : Value, reified T2 : Value> safePopTwo(): Pair<T1, T2>? {
+        if (operandStack.size() < 2) return null
+        val b = operandStack.popMove()
+        val a = operandStack.popMove()
+        if (a is T1 && b is T2) {
+            return Pair(a, b)
+        } else {
+            operandStack.pushMove(a) // restore on type mismatch
+            operandStack.pushMove(b)
+            return null
+        }
+    }
+    
+    private inline fun <reified T1 : Value, reified T2 : Value, reified T3 : Value> safePopThree(): Triple<T1, T2, T3>? {
+        if (operandStack.size() < 3) return null
+        val c = operandStack.popMove()
+        val b = operandStack.popMove()
+        val a = operandStack.popMove()
+        if (a is T1 && b is T2 && c is T3) {
+            return Triple(a, b, c)
+        } else {
+            operandStack.pushMove(a) // restore on type mismatch
+            operandStack.pushMove(b)
+            operandStack.pushMove(c)
+            return null
+        }
+    }
+
+    // ========== Helper functions for binary operations ==========
+    
+    private inline fun binaryIntOp(
+        op: (Long, Long) -> Long,
+        noinline checkZero: ((Long) -> Boolean)? = null
+    ): VMResult {
+        val (a, b) = safePopTwo<Value.IntValue, Value.IntValue>() ?: 
+            return if (operandStack.size() < 2) VMResult.STACK_UNDERFLOW else VMResult.INVALID_VALUE_TYPE
+        
+        if (checkZero != null && checkZero(b.value)) {
+            operandStack.pushMove(a)
+            operandStack.pushMove(b)
+            return VMResult.DIVISION_BY_ZERO
+        }
+        operandStack.pushMove(Value.IntValue(op(a.value, b.value)))
+        return VMResult.SUCCESS
+    }
+
+    private inline fun binaryFloatOp(op: (Double, Double) -> Double): VMResult {
+        val (a, b) = safePopTwo<Value.FloatValue, Value.FloatValue>() ?: 
+            return if (operandStack.size() < 2) VMResult.STACK_UNDERFLOW else VMResult.INVALID_VALUE_TYPE
+        operandStack.pushMove(Value.FloatValue(op(a.value, b.value)))
+        return VMResult.SUCCESS
+    }
+
+    private fun unaryIntOp(op: (Long) -> Long): VMResult {
+        val a = safePop<Value.IntValue>() ?: 
+            return if (operandStack.size() < 1) VMResult.STACK_UNDERFLOW else VMResult.INVALID_VALUE_TYPE
+        operandStack.pushMove(Value.IntValue(op(a.value)))
+        return VMResult.SUCCESS
+    }
+
+    private fun unaryFloatOp(op: (Double) -> Double): VMResult {
+        val a = safePop<Value.FloatValue>() ?: 
+            return if (operandStack.size() < 1) VMResult.STACK_UNDERFLOW else VMResult.INVALID_VALUE_TYPE
+        operandStack.pushMove(Value.FloatValue(op(a.value)))
+        return VMResult.SUCCESS
+    }
+
     // ========== Integer Arithmetic ==========
 
-    private fun handleAddInt(): VMResult {
-        if (operandStack.size() < 2) {
-            return VMResult.STACK_UNDERFLOW
-        }
-        val b = operandStack.popMove()
-        val a = operandStack.popMove()
-        if (a !is Value.IntValue || b !is Value.IntValue) {
-            operandStack.pushMove(a)
-            operandStack.pushMove(b)
-            return VMResult.INVALID_VALUE_TYPE
-        }
-        operandStack.pushMove(Value.IntValue(a.value + b.value))
-        return VMResult.SUCCESS
-    }
-
-    private fun handleSubInt(): VMResult {
-        if (operandStack.size() < 2) {
-            return VMResult.STACK_UNDERFLOW
-        }
-        val b = operandStack.popMove()
-        val a = operandStack.popMove()
-        if (a !is Value.IntValue || b !is Value.IntValue) {
-            operandStack.pushMove(a)
-            operandStack.pushMove(b)
-            return VMResult.INVALID_VALUE_TYPE
-        }
-        operandStack.pushMove(Value.IntValue(a.value - b.value))
-        return VMResult.SUCCESS
-    }
-
-    private fun handleMulInt(): VMResult {
-        if (operandStack.size() < 2) {
-            return VMResult.STACK_UNDERFLOW
-        }
-        val b = operandStack.popMove()
-        val a = operandStack.popMove()
-        if (a !is Value.IntValue || b !is Value.IntValue) {
-            operandStack.pushMove(a)
-            operandStack.pushMove(b)
-            return VMResult.INVALID_VALUE_TYPE
-        }
-        operandStack.pushMove(Value.IntValue(a.value * b.value))
-        return VMResult.SUCCESS
-    }
-
-    private fun handleDivInt(): VMResult {
-        if (operandStack.size() < 2) {
-            return VMResult.STACK_UNDERFLOW
-        }
-        val b = operandStack.popMove()
-        val a = operandStack.popMove()
-        if (a !is Value.IntValue || b !is Value.IntValue) {
-            operandStack.pushMove(a)
-            operandStack.pushMove(b)
-            return VMResult.INVALID_VALUE_TYPE
-        }
-        if (b.value == 0L) {
-            operandStack.pushMove(a)
-            operandStack.pushMove(b)
-            return VMResult.DIVISION_BY_ZERO
-        }
-        operandStack.pushMove(Value.IntValue(a.value / b.value))
-        return VMResult.SUCCESS
-    }
-
-    private fun handleModInt(): VMResult {
-        if (operandStack.size() < 2) {
-            return VMResult.STACK_UNDERFLOW
-        }
-        val b = operandStack.popMove()
-        val a = operandStack.popMove()
-        if (a !is Value.IntValue || b !is Value.IntValue) {
-            operandStack.pushMove(a)
-            operandStack.pushMove(b)
-            return VMResult.INVALID_VALUE_TYPE
-        }
-        if (b.value == 0L) {
-            operandStack.pushMove(a)
-            operandStack.pushMove(b)
-            return VMResult.DIVISION_BY_ZERO
-        }
-        operandStack.pushMove(Value.IntValue(a.value % b.value))
-        return VMResult.SUCCESS
-    }
-
-    private fun handleNegInt(): VMResult {
-        if (operandStack.size() < 1) {
-            return VMResult.STACK_UNDERFLOW
-        }
-        val a = operandStack.popMove()
-        if (a !is Value.IntValue) {
-            operandStack.pushMove(a)
-            return VMResult.INVALID_VALUE_TYPE
-        }
-        operandStack.pushMove(Value.IntValue(-a.value))
-        return VMResult.SUCCESS
-    }
+    private fun handleAddInt() = binaryIntOp(Long::plus)
+    private fun handleSubInt() = binaryIntOp(Long::minus)
+    private fun handleMulInt() = binaryIntOp(Long::times)
+    private fun handleDivInt() = binaryIntOp(Long::div) { it == 0L }
+    private fun handleModInt() = binaryIntOp(Long::rem) { it == 0L }
+    private fun handleNegInt() = unaryIntOp { -it }
 
     // ========== Float Arithmetic ==========
 
-    private fun handleAddFloat(): VMResult {
-        if (operandStack.size() < 2) {
-            return VMResult.STACK_UNDERFLOW
-        }
-        val b = operandStack.popMove()
-        val a = operandStack.popMove()
-        if (a !is Value.FloatValue || b !is Value.FloatValue) {
-            operandStack.pushMove(a)
-            operandStack.pushMove(b)
-            return VMResult.INVALID_VALUE_TYPE
-        }
-        operandStack.pushMove(Value.FloatValue(a.value + b.value))
+    private fun handleAddFloat() = binaryFloatOp(Double::plus)
+    private fun handleSubFloat() = binaryFloatOp(Double::minus)
+    private fun handleMulFloat() = binaryFloatOp(Double::times)
+    private fun handleDivFloat() = binaryFloatOp(Double::div)
+    private fun handleNegFloat() = unaryFloatOp { -it }
+
+    // ========== Helper functions for comparisons ==========
+    
+    private inline fun compareIntOp(op: (Long, Long) -> Boolean): VMResult {
+        val (a, b) = safePopTwo<Value.IntValue, Value.IntValue>() ?: 
+            return if (operandStack.size() < 2) VMResult.STACK_UNDERFLOW else VMResult.INVALID_VALUE_TYPE
+        operandStack.pushMove(Value.BoolValue(op(a.value, b.value)))
         return VMResult.SUCCESS
     }
 
-    private fun handleSubFloat(): VMResult {
-        if (operandStack.size() < 2) {
-            return VMResult.STACK_UNDERFLOW
-        }
-        val b = operandStack.popMove()
-        val a = operandStack.popMove()
-        if (a !is Value.FloatValue || b !is Value.FloatValue) {
-            operandStack.pushMove(a)
-            operandStack.pushMove(b)
-            return VMResult.INVALID_VALUE_TYPE
-        }
-        operandStack.pushMove(Value.FloatValue(a.value - b.value))
-        return VMResult.SUCCESS
-    }
-
-    private fun handleMulFloat(): VMResult {
-        if (operandStack.size() < 2) {
-            return VMResult.STACK_UNDERFLOW
-        }
-        val b = operandStack.popMove()
-        val a = operandStack.popMove()
-        if (a !is Value.FloatValue || b !is Value.FloatValue) {
-            operandStack.pushMove(a)
-            operandStack.pushMove(b)
-            return VMResult.INVALID_VALUE_TYPE
-        }
-        operandStack.pushMove(Value.FloatValue(a.value * b.value))
-        return VMResult.SUCCESS
-    }
-
-    private fun handleDivFloat(): VMResult {
-        if (operandStack.size() < 2) {
-            return VMResult.STACK_UNDERFLOW
-        }
-        val b = operandStack.popMove()
-        val a = operandStack.popMove()
-        if (a !is Value.FloatValue || b !is Value.FloatValue) {
-            operandStack.pushMove(a)
-            operandStack.pushMove(b)
-            return VMResult.INVALID_VALUE_TYPE
-        }
-        operandStack.pushMove(Value.FloatValue(a.value / b.value))
-        return VMResult.SUCCESS
-    }
-
-    private fun handleNegFloat(): VMResult {
-        if (operandStack.size() < 1) {
-            return VMResult.STACK_UNDERFLOW
-        }
-        val a = operandStack.popMove()
-        if (a !is Value.FloatValue) {
-            operandStack.pushMove(a)
-            return VMResult.INVALID_VALUE_TYPE
-        }
-        operandStack.pushMove(Value.FloatValue(-a.value))
+    private inline fun compareFloatOp(op: (Double, Double) -> Boolean): VMResult {
+        val (a, b) = safePopTwo<Value.FloatValue, Value.FloatValue>() ?: 
+            return if (operandStack.size() < 2) VMResult.STACK_UNDERFLOW else VMResult.INVALID_VALUE_TYPE
+        operandStack.pushMove(Value.BoolValue(op(a.value, b.value)))
         return VMResult.SUCCESS
     }
 
     // ========== Integer Comparisons ==========
 
-    private fun handleEqInt(): VMResult {
-        if (operandStack.size() < 2) {
-            return VMResult.STACK_UNDERFLOW
-        }
-        val b = operandStack.popMove()
-        val a = operandStack.popMove()
-        if (a !is Value.IntValue || b !is Value.IntValue) {
-            operandStack.pushMove(a)
-            operandStack.pushMove(b)
-            return VMResult.INVALID_VALUE_TYPE
-        }
-        operandStack.pushMove(Value.BoolValue(a.value == b.value))
-        return VMResult.SUCCESS
-    }
-
-    private fun handleNeInt(): VMResult {
-        if (operandStack.size() < 2) {
-            return VMResult.STACK_UNDERFLOW
-        }
-        val b = operandStack.popMove()
-        val a = operandStack.popMove()
-        if (a !is Value.IntValue || b !is Value.IntValue) {
-            operandStack.pushMove(a)
-            operandStack.pushMove(b)
-            return VMResult.INVALID_VALUE_TYPE
-        }
-        operandStack.pushMove(Value.BoolValue(a.value != b.value))
-        return VMResult.SUCCESS
-    }
-
-    private fun handleLtInt(): VMResult {
-        if (operandStack.size() < 2) {
-            return VMResult.STACK_UNDERFLOW
-        }
-        val b = operandStack.popMove()
-        val a = operandStack.popMove()
-        if (a !is Value.IntValue || b !is Value.IntValue) {
-            operandStack.pushMove(a)
-            operandStack.pushMove(b)
-            return VMResult.INVALID_VALUE_TYPE
-        }
-        operandStack.pushMove(Value.BoolValue(a.value < b.value))
-        return VMResult.SUCCESS
-    }
-
-    private fun handleLeInt(): VMResult {
-        if (operandStack.size() < 2) {
-            return VMResult.STACK_UNDERFLOW
-        }
-        val b = operandStack.popMove()
-        val a = operandStack.popMove()
-        if (a !is Value.IntValue || b !is Value.IntValue) {
-            operandStack.pushMove(a)
-            operandStack.pushMove(b)
-            return VMResult.INVALID_VALUE_TYPE
-        }
-        operandStack.pushMove(Value.BoolValue(a.value <= b.value))
-        return VMResult.SUCCESS
-    }
-
-    private fun handleGtInt(): VMResult {
-        if (operandStack.size() < 2) {
-            return VMResult.STACK_UNDERFLOW
-        }
-        val b = operandStack.popMove()
-        val a = operandStack.popMove()
-        if (a !is Value.IntValue || b !is Value.IntValue) {
-            operandStack.pushMove(a)
-            operandStack.pushMove(b)
-            return VMResult.INVALID_VALUE_TYPE
-        }
-        operandStack.pushMove(Value.BoolValue(a.value > b.value))
-        return VMResult.SUCCESS
-    }
-
-    private fun handleGeInt(): VMResult {
-        if (operandStack.size() < 2) {
-            return VMResult.STACK_UNDERFLOW
-        }
-        val b = operandStack.popMove()
-        val a = operandStack.popMove()
-        if (a !is Value.IntValue || b !is Value.IntValue) {
-            operandStack.pushMove(a)
-            operandStack.pushMove(b)
-            return VMResult.INVALID_VALUE_TYPE
-        }
-        operandStack.pushMove(Value.BoolValue(a.value >= b.value))
-        return VMResult.SUCCESS
-    }
+    private fun handleEqInt() = compareIntOp { a, b -> a == b }
+    private fun handleNeInt() = compareIntOp { a, b -> a != b }
+    private fun handleLtInt() = compareIntOp { a, b -> a < b }
+    private fun handleLeInt() = compareIntOp { a, b -> a <= b }
+    private fun handleGtInt() = compareIntOp { a, b -> a > b }
+    private fun handleGeInt() = compareIntOp { a, b -> a >= b }
 
     // ========== Float Comparisons ==========
 
-    private fun handleEqFloat(): VMResult {
-        if (operandStack.size() < 2) {
-            return VMResult.STACK_UNDERFLOW
-        }
-        val b = operandStack.popMove()
-        val a = operandStack.popMove()
-        if (a !is Value.FloatValue || b !is Value.FloatValue) {
-            operandStack.pushMove(a)
-            operandStack.pushMove(b)
-            return VMResult.INVALID_VALUE_TYPE
-        }
-        operandStack.pushMove(Value.BoolValue(a.value == b.value))
-        return VMResult.SUCCESS
-    }
+    private fun handleEqFloat() = compareFloatOp { a, b -> a == b }
+    private fun handleNeFloat() = compareFloatOp { a, b -> a != b }
+    private fun handleLtFloat() = compareFloatOp { a, b -> a < b }
+    private fun handleLeFloat() = compareFloatOp { a, b -> a <= b }
+    private fun handleGtFloat() = compareFloatOp { a, b -> a > b }
+    private fun handleGeFloat() = compareFloatOp { a, b -> a >= b }
 
-    private fun handleNeFloat(): VMResult {
-        if (operandStack.size() < 2) {
-            return VMResult.STACK_UNDERFLOW
-        }
-        val b = operandStack.popMove()
-        val a = operandStack.popMove()
-        if (a !is Value.FloatValue || b !is Value.FloatValue) {
-            operandStack.pushMove(a)
-            operandStack.pushMove(b)
-            return VMResult.INVALID_VALUE_TYPE
-        }
-        operandStack.pushMove(Value.BoolValue(a.value != b.value))
-        return VMResult.SUCCESS
-    }
-
-    private fun handleLtFloat(): VMResult {
-        if (operandStack.size() < 2) {
-            return VMResult.STACK_UNDERFLOW
-        }
-        val b = operandStack.popMove()
-        val a = operandStack.popMove()
-        if (a !is Value.FloatValue || b !is Value.FloatValue) {
-            operandStack.pushMove(a)
-            operandStack.pushMove(b)
-            return VMResult.INVALID_VALUE_TYPE
-        }
-        operandStack.pushMove(Value.BoolValue(a.value < b.value))
-        return VMResult.SUCCESS
-    }
-
-    private fun handleLeFloat(): VMResult {
-        if (operandStack.size() < 2) {
-            return VMResult.STACK_UNDERFLOW
-        }
-        val b = operandStack.popMove()
-        val a = operandStack.popMove()
-        if (a !is Value.FloatValue || b !is Value.FloatValue) {
-            operandStack.pushMove(a)
-            operandStack.pushMove(b)
-            return VMResult.INVALID_VALUE_TYPE
-        }
-        operandStack.pushMove(Value.BoolValue(a.value <= b.value))
-        return VMResult.SUCCESS
-    }
-
-    private fun handleGtFloat(): VMResult {
-        if (operandStack.size() < 2) {
-            return VMResult.STACK_UNDERFLOW
-        }
-        val b = operandStack.popMove()
-        val a = operandStack.popMove()
-        if (a !is Value.FloatValue || b !is Value.FloatValue) {
-            operandStack.pushMove(a)
-            operandStack.pushMove(b)
-            return VMResult.INVALID_VALUE_TYPE
-        }
-        operandStack.pushMove(Value.BoolValue(a.value > b.value))
-        return VMResult.SUCCESS
-    }
-
-    private fun handleGeFloat(): VMResult {
-        if (operandStack.size() < 2) {
-            return VMResult.STACK_UNDERFLOW
-        }
-        val b = operandStack.popMove()
-        val a = operandStack.popMove()
-        if (a !is Value.FloatValue || b !is Value.FloatValue) {
-            operandStack.pushMove(a)
-            operandStack.pushMove(b)
-            return VMResult.INVALID_VALUE_TYPE
-        }
-        operandStack.pushMove(Value.BoolValue(a.value >= b.value))
+    // ========== Helper functions for logical operations ==========
+    
+    private inline fun binaryBoolOp(op: (Boolean, Boolean) -> Boolean): VMResult {
+        val (a, b) = safePopTwo<Value.BoolValue, Value.BoolValue>() ?: 
+            return if (operandStack.size() < 2) VMResult.STACK_UNDERFLOW else VMResult.INVALID_VALUE_TYPE
+        operandStack.pushMove(Value.BoolValue(op(a.value, b.value)))
         return VMResult.SUCCESS
     }
 
     // ========== Logical Operations ==========
 
-    private fun handleAnd(): VMResult {
-        if (operandStack.size() < 2) {
-            return VMResult.STACK_UNDERFLOW
-        }
-        val b = operandStack.popMove()
-        val a = operandStack.popMove()
-        if (a !is Value.BoolValue || b !is Value.BoolValue) {
-            operandStack.pushMove(a)
-            operandStack.pushMove(b)
-            return VMResult.INVALID_VALUE_TYPE
-        }
-        operandStack.pushMove(Value.BoolValue(a.value && b.value))
-        return VMResult.SUCCESS
-    }
-
-    private fun handleOr(): VMResult {
-        if (operandStack.size() < 2) {
-            return VMResult.STACK_UNDERFLOW
-        }
-        val b = operandStack.popMove()
-        val a = operandStack.popMove()
-        if (a !is Value.BoolValue || b !is Value.BoolValue) {
-            operandStack.pushMove(a)
-            operandStack.pushMove(b)
-            return VMResult.INVALID_VALUE_TYPE
-        }
-        operandStack.pushMove(Value.BoolValue(a.value || b.value))
-        return VMResult.SUCCESS
-    }
-
+    private fun handleAnd() = binaryBoolOp { a, b -> a && b }
+    private fun handleOr() = binaryBoolOp { a, b -> a || b }
     private fun handleNot(): VMResult {
-        if (operandStack.size() < 1) {
-            return VMResult.STACK_UNDERFLOW
-        }
-        val a = operandStack.popMove()
-        if (a !is Value.BoolValue) {
-            operandStack.pushMove(a)
-            return VMResult.INVALID_VALUE_TYPE
-        }
+        val a = safePop<Value.BoolValue>() ?: 
+            return if (operandStack.size() < 1) VMResult.STACK_UNDERFLOW else VMResult.INVALID_VALUE_TYPE
         operandStack.pushMove(Value.BoolValue(!a.value))
         return VMResult.SUCCESS
     }
 
-    // ========== Control Flow ==========
-
-    private fun handleJump(frame: CallFrame, operand: Int): VMResult {
-        // Convert operand to signed (sign extension)
+    // ========== Helper function for jumps ==========
+    
+    private fun calculateJumpPC(frame: CallFrame, operand: Int): Int? {
         val signedOperand = if (operand and 0x800000 != 0) {
             operand or 0xFF000000.toInt() // Sign extension
         } else {
             operand
         }
-        
-        // Calculate new PC value: newPC = currentPC + (operand * 4) + 4
         val newPC = frame.pc + (signedOperand * 4) + 4
-        
-        // Check bounds
-        if (newPC < 0 || newPC > frame.function.instructions.size) {
-            return VMResult.INVALID_OPCODE
+        return if (newPC < 0 || newPC > frame.function.instructions.size) {
+            null
+        } else {
+            newPC - 4 // Compensate for automatic increment in loop
         }
-        
-        // Set PC (compensate for automatic increment in loop)
-        frame.pc = newPC - 4
+    }
+
+    // ========== Control Flow ==========
+
+    private fun handleJump(frame: CallFrame, operand: Int): VMResult {
+        val newPC = calculateJumpPC(frame, operand) ?: return VMResult.INVALID_OPCODE
+        frame.pc = newPC
         return VMResult.SUCCESS
     }
 
     private fun handleJumpIfFalse(frame: CallFrame, operand: Int): VMResult {
-        if (operandStack.size() < 1) {
-            return VMResult.STACK_UNDERFLOW
-        }
-        val value = operandStack.popMove()
-        if (value !is Value.BoolValue) {
-            operandStack.pushMove(value)
-            return VMResult.INVALID_VALUE_TYPE
-        }
-        
+        val value = safePop<Value.BoolValue>() ?: 
+            return if (operandStack.size() < 1) VMResult.STACK_UNDERFLOW else VMResult.INVALID_VALUE_TYPE
         if (!value.value) {
-            // Jump
-            val signedOperand = if (operand and 0x800000 != 0) {
-                operand or 0xFF000000.toInt()
-            } else {
-                operand
-            }
-            val newPC = frame.pc + (signedOperand * 4) + 4
-            if (newPC < 0 || newPC > frame.function.instructions.size) {
-                operandStack.pushMove(value)
-                return VMResult.INVALID_OPCODE
-            }
-            frame.pc = newPC - 4
+            val newPC = calculateJumpPC(frame, operand) ?: return VMResult.INVALID_OPCODE
+            frame.pc = newPC
         }
-        // If true, continue execution with next instruction
         return VMResult.SUCCESS
     }
 
     private fun handleJumpIfTrue(frame: CallFrame, operand: Int): VMResult {
-        if (operandStack.size() < 1) {
-            return VMResult.STACK_UNDERFLOW
-        }
-        val value = operandStack.popMove()
-        if (value !is Value.BoolValue) {
-            operandStack.pushMove(value)
-            return VMResult.INVALID_VALUE_TYPE
-        }
-        
+        val value = safePop<Value.BoolValue>() ?: 
+            return if (operandStack.size() < 1) VMResult.STACK_UNDERFLOW else VMResult.INVALID_VALUE_TYPE
         if (value.value) {
-            // Jump
-            val signedOperand = if (operand and 0x800000 != 0) {
-                operand or 0xFF000000.toInt()
-            } else {
-                operand
-            }
-            val newPC = frame.pc + (signedOperand * 4) + 4
-            if (newPC < 0 || newPC > frame.function.instructions.size) {
-                operandStack.pushMove(value)
-                return VMResult.INVALID_OPCODE
-            }
-            frame.pc = newPC - 4
+            val newPC = calculateJumpPC(frame, operand) ?: return VMResult.INVALID_OPCODE
+            frame.pc = newPC
         }
-        // If false, continue execution with next instruction
         return VMResult.SUCCESS
     }
 
@@ -833,82 +537,29 @@ class VirtualMachine(
         return VMResult.SUCCESS
     }
 
+    // ========== Helper function for array creation ==========
+    
+    private inline fun newArray(createArray: (Int) -> Value.ArrayRef): VMResult {
+        val sizeValue = safePop<Value.IntValue>() ?: 
+            return if (operandStack.size() < 1) VMResult.STACK_UNDERFLOW else VMResult.INVALID_VALUE_TYPE
+        val size = sizeValue.value.toInt()
+        if (size < 0) {
+            operandStack.pushMove(sizeValue)
+            return VMResult.ARRAY_INDEX_OUT_OF_BOUNDS
+        }
+        operandStack.pushMove(createArray(size))
+        return VMResult.SUCCESS
+    }
+
     // ========== Arrays ==========
 
-    private fun handleNewArrayInt(): VMResult {
-        if (operandStack.size() < 1) {
-            return VMResult.STACK_UNDERFLOW
-        }
-        val sizeValue = operandStack.popMove()
-        if (sizeValue !is Value.IntValue) {
-            operandStack.pushMove(sizeValue)
-            return VMResult.INVALID_VALUE_TYPE
-        }
-        val size = sizeValue.value.toInt()
-        if (size < 0) {
-            operandStack.pushMove(sizeValue)
-            return VMResult.ARRAY_INDEX_OUT_OF_BOUNDS
-        }
-        val ref = memoryManager.newIntArray(size)
-        operandStack.pushMove(ref)
-        return VMResult.SUCCESS
-    }
-
-    private fun handleNewArrayFloat(): VMResult {
-        if (operandStack.size() < 1) {
-            return VMResult.STACK_UNDERFLOW
-        }
-        val sizeValue = operandStack.popMove()
-        if (sizeValue !is Value.IntValue) {
-            operandStack.pushMove(sizeValue)
-            return VMResult.INVALID_VALUE_TYPE
-        }
-        val size = sizeValue.value.toInt()
-        if (size < 0) {
-            operandStack.pushMove(sizeValue)
-            return VMResult.ARRAY_INDEX_OUT_OF_BOUNDS
-        }
-        val ref = memoryManager.newFloatArray(size)
-        operandStack.pushMove(ref)
-        return VMResult.SUCCESS
-    }
-
-    private fun handleNewArrayBool(): VMResult {
-        if (operandStack.size() < 1) {
-            return VMResult.STACK_UNDERFLOW
-        }
-        val sizeValue = operandStack.popMove()
-        if (sizeValue !is Value.IntValue) {
-            operandStack.pushMove(sizeValue)
-            return VMResult.INVALID_VALUE_TYPE
-        }
-        val size = sizeValue.value.toInt()
-        if (size < 0) {
-            operandStack.pushMove(sizeValue)
-            return VMResult.ARRAY_INDEX_OUT_OF_BOUNDS
-        }
-        val ref = memoryManager.newBoolArray(size)
-        operandStack.pushMove(ref)
-        return VMResult.SUCCESS
-    }
+    private fun handleNewArrayInt() = newArray { memoryManager.newIntArray(it) }
+    private fun handleNewArrayFloat() = newArray { memoryManager.newFloatArray(it) }
+    private fun handleNewArrayBool() = newArray { memoryManager.newBoolArray(it) }
 
     private fun handleArrayLoad(): VMResult {
-        if (operandStack.size() < 2) {
-            return VMResult.STACK_UNDERFLOW
-        }
-        val indexValue = operandStack.popMove()
-        val arrayRef = operandStack.popMove()
-        
-        if (indexValue !is Value.IntValue) {
-            operandStack.pushMove(arrayRef)
-            operandStack.pushMove(indexValue)
-            return VMResult.INVALID_VALUE_TYPE
-        }
-        if (arrayRef !is Value.ArrayRef) {
-            operandStack.pushMove(arrayRef)
-            operandStack.pushMove(indexValue)
-            return VMResult.INVALID_VALUE_TYPE
-        }
+        val (arrayRef, indexValue) = safePopTwo<Value.ArrayRef, Value.IntValue>() ?: 
+            return if (operandStack.size() < 2) VMResult.STACK_UNDERFLOW else VMResult.INVALID_VALUE_TYPE
         
         val index = indexValue.value.toInt()
         
@@ -945,23 +596,11 @@ class VirtualMachine(
     }
 
     private fun handleArrayStore(): VMResult {
-        if (operandStack.size() < 3) {
-            return VMResult.STACK_UNDERFLOW
-        }
-        val value = operandStack.popMove()
-        val indexValue = operandStack.popMove()
-        val arrayRef = operandStack.popMove()
+        if (operandStack.size() < 3) return VMResult.STACK_UNDERFLOW
         
-        if (indexValue !is Value.IntValue) {
-            operandStack.pushMove(arrayRef)
-            operandStack.pushMove(indexValue)
-            operandStack.pushMove(value)
-            return VMResult.INVALID_VALUE_TYPE
-        }
-        if (arrayRef !is Value.ArrayRef) {
-            operandStack.pushMove(arrayRef)
-            operandStack.pushMove(indexValue)
-            operandStack.pushMove(value)
+        val value = operandStack.popMove()
+        val (arrayRef, indexValue) = safePopTwo<Value.ArrayRef, Value.IntValue>() ?: run {
+            operandStack.pushMove(value) // restore value on type mismatch
             return VMResult.INVALID_VALUE_TYPE
         }
         
@@ -1004,9 +643,7 @@ class VirtualMachine(
     // ========== Built-in Functions ==========
 
     private fun handlePrint(): VMResult {
-        if (operandStack.size() < 1) {
-            return VMResult.STACK_UNDERFLOW
-        }
+        if (operandStack.size() < 1) return VMResult.STACK_UNDERFLOW
         val value = operandStack.popMove()
         when (value) {
             is Value.IntValue -> print(value.value)
@@ -1021,14 +658,8 @@ class VirtualMachine(
     }
 
     private fun handlePrintArray(): VMResult {
-        if (operandStack.size() < 1) {
-            return VMResult.STACK_UNDERFLOW
-        }
-        val arrayRef = operandStack.popMove()
-        if (arrayRef !is Value.ArrayRef) {
-            operandStack.pushMove(arrayRef)
-            return VMResult.INVALID_VALUE_TYPE
-        }
+        val arrayRef = safePop<Value.ArrayRef>() ?: 
+            return if (operandStack.size() < 1) VMResult.STACK_UNDERFLOW else VMResult.INVALID_VALUE_TYPE
         
         try {
             val arrayType = memoryManager.getArrayType(arrayRef)
