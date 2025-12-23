@@ -24,8 +24,8 @@ object VMService {
         }
 
         // Execute on virtual machine
+        val jit = JITCompiler(module)
         try {
-            val jit = JITCompiler(module)
             val vm = VirtualMachine(module, jit)
             val result = vm.execute()
 
@@ -37,6 +37,8 @@ object VMService {
             println("Unexpected error during execution:")
             println("  ${e.message}")
             e.printStackTrace()
+        } finally {
+            jit.shutdown()
         }
     }
 

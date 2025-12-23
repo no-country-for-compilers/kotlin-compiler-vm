@@ -43,44 +43,57 @@ class E2ETest {
     @Test
     fun `factorial program - full compilation pipeline`() {
         val module = compileFile("src/test/resources/factorial.lang")
-        
-        // Execute bytecode
+
         val jit = JITCompiler(module)
-        val vm = VirtualMachine(module, jit)
-        val result = vm.execute()
-        assertEquals(VMResult.SUCCESS, result, "VM execution should succeed")
+        try {
+            val vm = VirtualMachine(module, jit)
+            val result = vm.execute()
+            assertEquals(VMResult.SUCCESS, result, "VM execution should succeed")
+        } finally {
+            jit.shutdown()
+        }
     }
 
     @Test
     fun `merge sort program - full compilation pipeline`() {
         val module = compileFile("src/test/resources/merge_sort.lang")
         
-        // Execute bytecode
         val jit = JITCompiler(module)
-        val vm = VirtualMachine(module, jit)
-        val result = vm.execute()
-        assertEquals(VMResult.SUCCESS, result, "VM execution should succeed")
+
+        try {
+            val vm = VirtualMachine(module, jit)
+            val result = vm.execute()
+            assertEquals(VMResult.SUCCESS, result, "VM execution should succeed")
+        } finally {
+            jit.shutdown()
+        }
     }
 
     @Test
     fun `sieve program - full compilation pipeline`() {
         val module = compileFile("src/test/resources/prime.lang")
         
-        // Execute bytecode
         val jit = JITCompiler(module)
-        val vm = VirtualMachine(module, jit)
-        val result = vm.execute()
-        assertEquals(VMResult.SUCCESS, result, "VM execution should succeed")
+        try {
+            val vm = VirtualMachine(module, jit)
+            val result = vm.execute()
+            assertEquals(VMResult.SUCCESS, result, "VM execution should succeed")
+        } finally {
+            jit.shutdown()
+        }
     }
 
     @Test
     fun `arithmetic program - full compilation pipeline`() {
         val module = compileFile("src/test/resources/simple.lang")
         
-        // Execute bytecode
         val jit = JITCompiler(module)
-        val vm = VirtualMachine(module, jit)
-        val result = vm.execute()
-        assertEquals(VMResult.SUCCESS, result, "VM execution should succeed")
+        try {
+            val vm = VirtualMachine(module, jit)
+            val result = vm.execute()
+            assertEquals(VMResult.SUCCESS, result, "VM execution should succeed")
+        } finally {
+            jit.shutdown()
+        }
     }
 }
