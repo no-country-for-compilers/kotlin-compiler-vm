@@ -112,6 +112,13 @@ class InstructionBuilder {
     }
     
     /**
+     * Emits a raw byte (for copying incomplete instructions).
+     */
+    fun emitRawByte(byte: Byte) {
+        instructions.add(byte)
+    }
+    
+    /**
      * Returns the final byte array with instructions.
      * Resolves any remaining forward references (should be none if labels are properly defined).
      */

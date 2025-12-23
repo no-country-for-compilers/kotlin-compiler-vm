@@ -1,5 +1,9 @@
 package com.compiler.vm
 
+import com.compiler.bytecode.Value
+import com.compiler.memory.RcOperandStack
+import com.compiler.memory.MemoryManager
+
 /**
  * Interface for integrating JIT compiler with virtual machine.
  */
@@ -29,10 +33,11 @@ interface CompiledFunctionExecutor {
     /**
      * Execute compiled function.
      * 
-     * @param args Function arguments (in call order)
-     * @param operandStack Operand stack for returning result
+     * @param frame Call frame for the function
+     * @param stack Operand stack for the VM
+     * @param memoryManager Memory manager for the VM
      * @return VMResult.SUCCESS on successful execution, otherwise error code
      */
-    fun execute(args: List<com.compiler.bytecode.Value>, operandStack: com.compiler.memory.RcOperandStack): VMResult
+    fun execute(frame: CallFrame, stack: RcOperandStack, memoryManager: MemoryManager): VMResult
 }
 

@@ -14,6 +14,9 @@ object Opcodes {
     // Local variables (0x10-0x1F)
     const val LOAD_LOCAL = 0x10.toByte()
     const val STORE_LOCAL = 0x11.toByte()
+    const val INC_LOCAL = 0x12.toByte()  // Increment local variable by 1
+    const val DEC_LOCAL = 0x13.toByte()  // Decrement local variable by 1
+    const val ADD_LOCAL_IMMEDIATE = 0x14.toByte()  // Add constant to local: operand = (localIndex << 16) | (constIndex & 0xFFFF)
 
     // Arithmetic operations - int (0x20-0x2F)
     const val ADD_INT = 0x20.toByte()

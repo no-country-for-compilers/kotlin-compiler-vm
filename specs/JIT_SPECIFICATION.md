@@ -16,7 +16,7 @@ class JITCompiler(
     private val threshold: Int = 1000
 ) {
     private val callCounts: ConcurrentHashMap<String, AtomicInteger>
-    private val compiledFunctions: ConcurrentHashMap<String, CompiledJVMFunction>
+    private val compiledFunctions: ConcurrentHashMap<String, CompiledFunctionExecutor>
     private val bytecodeGenerator: JVMBytecodeGenerator
 }
 ```

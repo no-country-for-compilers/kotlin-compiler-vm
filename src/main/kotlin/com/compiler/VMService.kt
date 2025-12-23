@@ -16,20 +16,15 @@ object VMService {
         }
 
         // Compile to bytecode
-        val module = BytecodeService.run(filePath)
-        if (module == null) {
-            // BytecodeService already printed error message
-            return
-        }
+        val module = BytecodeService.run(filePath) ?: return
 
         // Execute on virtual machine
         try {
-            val vm = VirtualMachine(module)
+            val vm = VirtualMachine(module, null)
             val result = vm.execute()
 
             if (result != VMResult.SUCCESS) {
                 println("VM Error: ${result.name}")
-                return
             }
         } catch (e: Exception) {
             println("Unexpected error during execution:")
@@ -37,7 +32,6 @@ object VMService {
             e.printStackTrace()
         }
     }
-
     fun run(module: BytecodeModule) {
         try {
             val vm = VirtualMachine(module)

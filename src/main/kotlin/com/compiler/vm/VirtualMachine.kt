@@ -2,6 +2,7 @@ package com.compiler.vm
 
 import com.compiler.bytecode.*
 import com.compiler.memory.*
+import com.compiler.vm.jit.BytecodeOptimizerJIT
 
 /**
  * Virtual machine for executing bytecode.
@@ -59,15 +60,6 @@ class VirtualMachine(
                 continue
             }
 
-            // Check JIT compilation
-            if (jitCompiler?.isEnabled() == true) {
-                val compiled = jitCompiler.getCompiled(frame.function.name)
-                if (compiled != null) {
-                    // Execute compiled version
-                    // For simplicity, JIT function call can be implemented here
-                    // For now, continue with interpretation
-                }
-            }
 
             // Save stack size and PC before instruction execution
             val stackSizeBefore = callStack.size
@@ -137,6 +129,9 @@ class VirtualMachine(
             // Local variables
             Opcodes.LOAD_LOCAL -> handleLoadLocal(frame, operand)
             Opcodes.STORE_LOCAL -> handleStoreLocal(frame, operand)
+            Opcodes.INC_LOCAL -> handleIncLocal(frame, operand)
+            Opcodes.DEC_LOCAL -> handleDecLocal(frame, operand)
+            Opcodes.ADD_LOCAL_IMMEDIATE -> handleAddLocalImmediate(frame, operand)
 
             // Integer arithmetic
             Opcodes.ADD_INT -> handleAddInt()
@@ -252,6 +247,54 @@ class VirtualMachine(
         val value = operandStack.popMove()
         frame.locals.setMove(operand, value)
         return VMResult.SUCCESS
+    }
+
+    private fun handleIncLocal(frame: CallFrame, operand: Int): VMResult {
+        if (operand < 0 || operand >= frame.function.localsCount) {
+            return VMResult.INVALID_LOCAL_INDEX
+        }
+        val currentValue = frame.locals.getCopy(operand)
+        if (currentValue is Value.IntValue) {
+            val newValue = Value.IntValue(currentValue.value + 1)
+            frame.locals.setMove(operand, newValue)
+            return VMResult.SUCCESS
+        }
+        return VMResult.INVALID_VALUE_TYPE
+    }
+
+    private fun handleDecLocal(frame: CallFrame, operand: Int): VMResult {
+        if (operand < 0 || operand >= frame.function.localsCount) {
+            return VMResult.INVALID_LOCAL_INDEX
+        }
+        val currentValue = frame.locals.getCopy(operand)
+        if (currentValue is Value.IntValue) {
+            val newValue = Value.IntValue(currentValue.value - 1)
+            frame.locals.setMove(operand, newValue)
+            return VMResult.SUCCESS
+        }
+        return VMResult.INVALID_VALUE_TYPE
+    }
+
+    private fun handleAddLocalImmediate(frame: CallFrame, operand: Int): VMResult {
+        // operand format: (localIndex << 16) | (constIndex & 0xFFFF)
+        val localIndex = (operand shr 16) and 0xFFFF
+        val constIndex = operand and 0xFFFF
+        
+        if (localIndex < 0 || localIndex >= frame.function.localsCount) {
+            return VMResult.INVALID_LOCAL_INDEX
+        }
+        if (constIndex < 0 || constIndex >= module.intConstants.size) {
+            return VMResult.INVALID_CONSTANT_INDEX
+        }
+        
+        val currentValue = frame.locals.getCopy(localIndex)
+        if (currentValue is Value.IntValue) {
+            val constantValue = module.intConstants[constIndex]
+            val newValue = Value.IntValue(currentValue.value + constantValue)
+            frame.locals.setMove(localIndex, newValue)
+            return VMResult.SUCCESS
+        }
+        return VMResult.INVALID_VALUE_TYPE
     }
 
     // ========== Helper functions for stack operations ==========
@@ -471,12 +514,35 @@ class VirtualMachine(
             args.add(0, operandStack.popMove())
         }
         
+        // Check for optimized bytecode (BytecodeOptimizerJIT)
+        val optimizedFunction = if (jitCompiler is com.compiler.vm.jit.BytecodeOptimizerJIT) {
+            jitCompiler.getOptimizedFunction(operand)
+        } else {
+            null
+        }
+        
+        // Use optimized function if available, otherwise use original
+        // Validate that optimized function has same signature as original
+        val functionToUse = if (optimizedFunction != null) {
+            // Verify that optimized function has same parameters and localsCount
+            if (optimizedFunction.parameters.size == function.parameters.size &&
+                optimizedFunction.localsCount == function.localsCount &&
+                optimizedFunction.returnType == function.returnType) {
+                optimizedFunction
+            } else {
+                // If signature doesn't match, use original function
+                function
+            }
+        } else {
+            function
+        }
+        
         // Create new CallFrame
         // returnAddress should point to the instruction after CALL
         // Since PC will be incremented by 4 after CALL, we need to use current PC + 4
         val newFrame = CallFrame(
-            function = function,
-            locals = RcLocals(memoryManager, function.localsCount),
+            function = functionToUse,
+            locals = RcLocals(memoryManager, functionToUse.localsCount),
             pc = 0,
             returnAddress = frame.pc + 4
         )
@@ -486,7 +552,44 @@ class VirtualMachine(
             newFrame.locals.setMove(i, args[i])
         }
         
-        // Push new frame onto stack
+        // Check JIT compilation at function entry (pc == 0)
+        // This avoids expensive ConcurrentHashMap lookup on every instruction
+        if (jitCompiler?.isEnabled() == true) {
+            val compiled = jitCompiler.getCompiled(function.name)
+            if (compiled != null) {
+                try {
+                    // Execute compiled function - it manages its own call stack internally
+                    // and handles return values/PC restoration automatically
+                    val result = compiled.execute(newFrame, operandStack, memoryManager)
+                    if (result != VMResult.SUCCESS) {
+                        newFrame.locals.clearAndReleaseAll()
+                        while (callStack.isNotEmpty()) {
+                            callStack.removeLast().locals.clearAndReleaseAll()
+                        }
+                        operandStack.clearAndReleaseAll()
+                        return result
+                    }
+
+                    // Compiled function completed successfully
+                    // The function's return value (if any) is already on operandStack
+                    // and caller's PC is already restored by the compiled function
+                    // We just need to clean up the frame we created
+                    newFrame.locals.clearAndReleaseAll()
+                    // Note: newFrame was never added to callStack, so we don't need to remove it
+                    return VMResult.SUCCESS
+                } catch (t: Throwable) {
+                    t.printStackTrace(System.err)
+                    newFrame.locals.clearAndReleaseAll()
+                    while (callStack.isNotEmpty()) {
+                        callStack.removeLast().locals.clearAndReleaseAll()
+                    }
+                    operandStack.clearAndReleaseAll()
+                    return VMResult.INVALID_OPCODE
+                }
+            }
+        }
+        
+        // Push new frame onto stack for interpretation
         callStack.addLast(newFrame)
         
         return VMResult.SUCCESS

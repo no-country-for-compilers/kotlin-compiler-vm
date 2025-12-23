@@ -13,6 +13,9 @@ repositories {
 dependencies {
     // Kotlin standard library
     implementation(kotlin("stdlib"))
+    implementation("org.ow2.asm:asm:9.7")
+    implementation("org.ow2.asm:asm-commons:9.7")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1")
     
     // Testing
     testImplementation(kotlin("test"))
