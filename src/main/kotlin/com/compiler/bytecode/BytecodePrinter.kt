@@ -124,6 +124,9 @@ object BytecodePrinter {
             0x04 -> "POP"
             0x10 -> "LOAD_LOCAL"
             0x11 -> "STORE_LOCAL"
+            0x12 -> "INC_LOCAL"
+            0x13 -> "DEC_LOCAL"
+            0x14 -> "ADD_LOCAL_IMMEDIATE"
             0x20 -> "ADD_INT"
             0x21 -> "SUB_INT"
             0x22 -> "MUL_INT"
@@ -178,9 +181,15 @@ object BytecodePrinter {
             0x03 -> { // PUSH_BOOL
                 if (operand == 0) "false" else "true"
             }
-            0x01, 0x02, 0x10, 0x11, 0x80, 0x90, 0x91, 0x94 -> {
+            0x01, 0x02, 0x10, 0x11, 0x12, 0x13, 0x80, 0x90, 0x91, 0x94 -> {
                 // Instructions that use indices
                 "#$operand"
+            }
+            0x14 -> {
+                // ADD_LOCAL_IMMEDIATE: operand = (localIndex << 16) | (constIndex & 0xFFFF)
+                val localIndex = (operand shr 16) and 0xFFFF
+                val constIndex = operand and 0xFFFF
+                "#$localIndex, const#$constIndex"
             }
             0x70, 0x71, 0x72 -> {
                 // Jump instructions - convert relative offset to absolute address
