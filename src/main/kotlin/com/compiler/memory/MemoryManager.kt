@@ -114,4 +114,12 @@ class MemoryManager(
             throw IndexOutOfBoundsException("Index $index out of bounds for size $size")
         }
     }
+
+    /**
+     * Clear all objects from the heap.
+     * Used when VM shuts down to free all remaining memory.
+     */
+    fun clearHeap() {
+        realHeap.clearAll()
+    }
 }

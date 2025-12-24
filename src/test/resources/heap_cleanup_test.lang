@@ -1,0 +1,12 @@
+func main(): void {
+    let arr: int[] = int[1000];
+
+    for (let i: int = 0; i < 1000; i = i + 1) {
+        arr[i] = 1000 - i;
+    }
+
+    arr = int[1000];
+
+    printArray(arr);
+}
+

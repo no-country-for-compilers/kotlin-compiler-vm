@@ -38,4 +38,12 @@ class Heap {
     }
 
     fun objectCount(): Int = objects.size
+
+    /**
+     * Clear all objects from the heap.
+     * Used when VM shuts down to free all remaining memory.
+     */
+    fun clearAll() {
+        objects.clear()
+    }
 }

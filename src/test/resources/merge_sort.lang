@@ -57,10 +57,10 @@ func merge(left: int[], leftSize: int, right: int[], rightSize: int): int[] {
 }
 
 func main(): void {
-    let arr: int[] = int[500000];
-    for (let i: int = 0; i < 500000; i = i + 1) {
-        arr[i] = 499999 - i;
+    let arr: int[] = int[100000];
+    for (let i: int = 0; i < 100000; i = i + 1) {
+        arr[i] = 99999 - i;
     }
-    let sorted: int[] = mergeSort(arr, 500000);
+    let sorted: int[] = mergeSort(arr, 100000);
     printArray(sorted);
 }

@@ -127,4 +127,18 @@ class E2ETest {
         assertTrue(avgWithJIT > 0, "JIT execution time should be positive")
         assertTrue(avgWithoutJIT > 0, "Non-JIT execution time should be positive")
     }
+
+    @Test
+    fun `heap cleanup test - verify heap is cleared after program completion`() {
+        val module = compileFile("src/test/resources/heap_cleanup_test.lang")
+        val vm = VirtualMachine(module, null)
+        
+        // Execute the program
+        val result = vm.execute()
+        assertEquals(VMResult.SUCCESS, result, "VM execution should succeed")
+        
+        // After execution, heap should be cleared (all objects freed)
+        val heapObjectCount = vm.getHeapObjectCount()
+        assertEquals(0, heapObjectCount, "Heap should be empty after program completion")
+    }
 }

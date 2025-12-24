@@ -21,6 +21,12 @@ class VirtualMachine(
     }
 
     /**
+     * Get the number of objects currently in the heap.
+     * Useful for testing heap cleanup.
+     */
+    fun getHeapObjectCount(): Int = memoryManager.debugHeapObjectCount()
+
+    /**
      * Execute bytecode module.
      * @return VMResult.SUCCESS on successful execution, otherwise error code
      */
@@ -73,6 +79,10 @@ class VirtualMachine(
                     callStack.removeLast().locals.clearAndReleaseAll()
                 }
                 operandStack.clearAndReleaseAll()
+                
+                // Clear heap to free all remaining memory
+                memoryManager.clearHeap()
+                
                 return result
             }
 
@@ -91,6 +101,10 @@ class VirtualMachine(
 
         // Clear operand stack before completion
         operandStack.clearAndReleaseAll()
+        
+        // Clear heap to free all remaining memory
+        memoryManager.clearHeap()
+        
         return VMResult.SUCCESS
     }
 
@@ -567,6 +581,7 @@ class VirtualMachine(
                             callStack.removeLast().locals.clearAndReleaseAll()
                         }
                         operandStack.clearAndReleaseAll()
+                        memoryManager.clearHeap()
                         return result
                     }
 
@@ -584,6 +599,7 @@ class VirtualMachine(
                         callStack.removeLast().locals.clearAndReleaseAll()
                     }
                     operandStack.clearAndReleaseAll()
+                    memoryManager.clearHeap()
                     return VMResult.INVALID_OPCODE
                 }
             }
