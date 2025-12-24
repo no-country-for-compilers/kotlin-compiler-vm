@@ -23,15 +23,4 @@ data class Token(
             "Token($type, '$lexeme', pos=${pos.line}:${pos.column})"
         }
     }
-    
-    /**
-     * Short version for debugging
-     */
-    fun toShortString(): String {
-        return if (literal != null) {
-            "$type($literal)"
-        } else {
-            type.toString()
-        }
-    }
 }
