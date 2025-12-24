@@ -12,8 +12,7 @@ class Lexer(private val source: String) {
     private var column = 1   // current pos
     
     private val tokens = mutableListOf<Token>()
-    
-    // Language keywords
+
     private val keywords = mapOf(
         "let" to TokenType.LET,
         "func" to TokenType.FUNC,
@@ -260,10 +259,7 @@ class Lexer(private val source: String) {
         column++
         return true
     }
-    
-    /**
-     * Check if at end of file
-     */
+
     private fun isAtEnd(): Boolean {
         return current >= source.length
     }
@@ -274,7 +270,6 @@ class Lexer(private val source: String) {
     private fun addToken(type: TokenType, lexeme: String, startColumn: Int) {
         tokens.add(Token(type, lexeme, pos = SourcePos(line, startColumn)))
     }
-
 
     /**
      * Add token with value; explicit start column provided

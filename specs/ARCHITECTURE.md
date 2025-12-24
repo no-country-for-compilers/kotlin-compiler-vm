@@ -182,4 +182,3 @@ sealed class Value {
 
 - **Язык:** Kotlin
 - **Инструменты:** Gradle, JUnit 5
-- **JIT:** ASM для генерации JVM bytecode
